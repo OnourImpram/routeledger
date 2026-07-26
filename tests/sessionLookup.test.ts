@@ -4,47 +4,47 @@ import { allSessions, findSessionById, findLatestSession } from "../src/sessions
 const ROOT = "tests/fixtures/projects";
 
 describe("allSessions", () => {
-  it("butun slug'lardaki oturumlari toplar", () => {
+  it("collects sessions across every slug", () => {
     const ids = allSessions(ROOT)
       .map((s) => s.sessionId)
       .sort();
     expect(ids).toEqual(["aaa-111", "bbb-222", "ccc-333"]);
   });
 
-  it("olmayan kok icin bos dizi dondurur", () => {
-    expect(allSessions("tests/fixtures/yok-boyle-kok")).toEqual([]);
+  it("returns an empty array for a root that does not exist", () => {
+    expect(allSessions("tests/fixtures/no-such-root")).toEqual([]);
   });
 });
 
 describe("findSessionById", () => {
-  it("tam kimlikle bulur", () => {
+  it("finds by exact id", () => {
     const s = findSessionById("bbb-222", ROOT);
     expect(s?.sessionId).toBe("bbb-222");
     expect(s?.slug).toBe("SLUG-A");
   });
 
-  it("onek ile bulur", () => {
+  it("finds by prefix", () => {
     expect(findSessionById("ccc", ROOT)?.sessionId).toBe("ccc-333");
   });
 
-  it("eslesme yoksa null dondurur", () => {
+  it("returns null when nothing matches", () => {
     expect(findSessionById("zzz", ROOT)).toBeNull();
   });
 
-  it("subagent dizinini oturum kimliginin altinda arar", () => {
+  it("looks for the subagent directory under the session id", () => {
     const s = findSessionById("aaa-111", ROOT);
     expect(s?.subagentDir.replace(/\\/g, "/")).toContain("SLUG-A/aaa-111/subagents");
   });
 });
 
 describe("findLatestSession", () => {
-  it("cwd slug'i eslesmezse fallback isaretiyle en son oturumu dondurur", () => {
-    const found = findLatestSession("C:\\hicbir\\yerde\\yok", ROOT);
+  it("returns the most recent session, flagged as a fallback, when the cwd slug misses", () => {
+    const found = findLatestSession("C:\\nowhere\\at\\all", ROOT);
     expect(found).not.toBeNull();
     expect(found!.usedFallback).toBe(true);
   });
 
-  it("cwd slug'i eslesirse fallback isareti dusmez", () => {
+  it("does not raise the fallback flag when the cwd slug hits", () => {
     const found = findLatestSession("SLUG-A", ROOT);
     expect(found).not.toBeNull();
     expect(found!.usedFallback).toBe(false);

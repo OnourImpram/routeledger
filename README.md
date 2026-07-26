@@ -15,7 +15,7 @@ npx routeledger
 
 ## What it looks like
 
-Real output, from a real session:
+Real output, from a real session (abridged — the full report lists all twelve flagged findings):
 
 ```
 routeledger — session da6e9010-343d-4966-a90c-7a7de1af0825
@@ -23,18 +23,26 @@ routeledger — session da6e9010-343d-4966-a90c-7a7de1af0825
   claude code: 2.1.206, 2.1.207, 2.1.211, 2.1.218, 2.1.220
 
   MODELS SERVED
-    claude-opus-4-8                7589 turn
-    claude-fable-5                 3662 turn
+    claude-opus-4-8                7589 turns
+    claude-fable-5                 3809 turns
 
   FINDINGS
-    [OBSERVATION ] aciklanmamis model degisimi
+    [OBSERVATION ] unexplained model change
                     claude-fable-5 -> claude-opus-4-8 @ 2026-07-19T15:32:10.329Z
-                    cikarim: kullanici eylemi bulunamadi; ancak oturum-ici settings.json
-                    duzenlemesi ve resume transcript'e kaydedilmez, dolayisiyla bu bir hipotezdir
+                    inference: no user action found; but a mid-session settings.json
+                    edit and a resume are not recorded in the transcript, so this is
+                    a hypothesis
+    [OBSERVATION ] plan-mode profile
+                    plan: claude-fable-5 | execution: claude-fable-5, claude-opus-4-8
+                    inference: claude-fable-5 served turns on both sides of the
+                    plan-mode boundary; if you expected a plan-mode upgrade, it
+                    may never have fired. The configuration at session time is not
+                    recorded in the transcript, so this is an observation, not a
+                    verdict
     [UNVERIFIABLE] agent-a90c8e85777de7dde (general-purpose)
-                    beyan edilen model yok; fiilen: claude-fable-5, claude-opus-4-8
-    [OK          ] 21 bulgu uyumlu — beyan edilen model ile fiilen kosan ayni
-                    hepsini gormek icin: routeledger --all
+                    no declared model; served: claude-fable-5, claude-opus-4-8
+    [OK          ] 20 findings raised nothing
+                    to see each of them: routeledger --all
 ```
 
 Two things in that report are invisible everywhere else: a model change nobody asked for, and a single subagent run served by two different models.

@@ -4,17 +4,17 @@ import { allSessions, findLatestSession, findSessionById } from "./sessions.js";
 import { auditSession } from "./audit.js";
 import { render, renderJson } from "./render.js";
 
-const USAGE = `routeledger — hangi model fiilen cevap verdi
+const USAGE = `routeledger — which model actually answered
 
-  routeledger               en son oturumu denetler
-  routeledger <session-id>  belirtilen oturumu denetler (onek yeter)
-  --sessions                en son oturumlari listeler (kimlik secmek icin)
-  --all                     uyumlu bulgulari da tek tek yazar
-  --json                    ciktiyi JSON basar (--sessions ile de calisir;
-                            raporda daima tum bulgular yer alir)
-  --version                 surumu basar
+  routeledger               audit the most recent session
+  routeledger <session-id>  audit one session (a prefix is enough)
+  --sessions                list the 15 most recent sessions, to pick an id from
+  --all                     also list the findings that raised nothing, one by one
+  --json                    print the report as JSON (works with --sessions;
+                            the JSON report always carries every finding)
+  --version                 print the version
 
-Salt okunur. Aga cikmaz, hicbir dosyaya yazmaz.
+Read-only. No network. Writes nothing.
 `;
 
 function ownVersion(): string {
@@ -36,7 +36,7 @@ function listSessions(asJson: boolean): void {
     return;
   }
   if (all.length === 0) {
-    process.stdout.write("routeledger: ~/.claude/projects altinda oturum bulunamadi.\n");
+    process.stdout.write("routeledger: no sessions found under ~/.claude/projects\n");
     return;
   }
   for (const s of all) {
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   if (arg !== undefined) {
     const byId = findSessionById(arg);
     if (byId === null) {
-      process.stderr.write(`routeledger: "${arg}" ile eslesen oturum yok.\n`);
+      process.stderr.write(`routeledger: no session matches "${arg}"\n`);
       process.exitCode = 1;
       return;
     }
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   } else {
     const found = findLatestSession(process.cwd());
     if (found === null) {
-      process.stdout.write("routeledger: ~/.claude/projects altinda oturum bulunamadi.\n");
+      process.stdout.write("routeledger: no sessions found under ~/.claude/projects\n");
       return;
     }
     session = found.session;

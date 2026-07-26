@@ -5,7 +5,7 @@ export interface Finding {
   status: Status;
   title: string;
   detail: string;
-  /** Cikarima dayanan bulgular burada acikca isaretlenir. */
+  /** Findings that rest on inference are marked here, explicitly. */
   inference?: string;
 }
 

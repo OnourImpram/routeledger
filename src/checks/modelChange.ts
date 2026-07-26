@@ -19,14 +19,14 @@ function userText(rec: Record<string, unknown>): string {
 }
 
 /**
- * Oturum boyunca servis eden modelin degistigi noktalari bulur.
+ * Finds the points where the serving model changed during a session.
  *
- * "Kullanici eylemi yok" bir CIKARIMDIR: oturum ortasindaki settings.json
- * duzenlemesi veya resume transcript'e kaydedilmez. Bulgu oyle etiketlenir.
+ * "No user action" is an INFERENCE: a mid-session settings.json edit or a
+ * resume is never written to the transcript. The finding is labeled as such.
  *
- * GIZLILIK: bu kontrol kullanici metnini yalnizca /model isaretini aramak icin
- * bellekte tarar. Taranan metin hicbir bulguya girmez, hicbir yere yazilmaz.
- * userText()'in dondurdugu deger yalnizca MODEL_COMMAND regex'ine verilir.
+ * PRIVACY: this check scans user text in memory for one thing only, the
+ * /model marker. The scanned text enters no finding and is written nowhere.
+ * The value userText() returns is passed to the MODEL_COMMAND regex, nothing else.
  */
 export async function checkModelChange(mainPath: string): Promise<Finding[]> {
   const findings: Finding[] = [];
@@ -51,22 +51,22 @@ export async function checkModelChange(mainPath: string): Promise<Finding[]> {
     }
     if (model === current) continue;
 
-    const ts = typeof rec["timestamp"] === "string" ? rec["timestamp"] : "zaman damgasi yok";
+    const ts = typeof rec["timestamp"] === "string" ? rec["timestamp"] : "no timestamp";
     findings.push(
       modelCommandSincePrevious
         ? {
             check: "model-change",
             status: "ok",
-            title: "model degisimi (aciklanmis)",
-            detail: `${current} -> ${model} @ ${ts}; oncesinde /model komutu var`,
+            title: "model change (explained)",
+            detail: `${current} -> ${model} @ ${ts}; a /model command precedes it`,
           }
         : {
             check: "model-change",
             status: "observation",
-            title: "aciklanmamis model degisimi",
+            title: "unexplained model change",
             detail: `${current} -> ${model} @ ${ts}`,
             inference:
-              "kullanici eylemi bulunamadi; ancak oturum-ici settings.json duzenlemesi ve resume transcript'e kaydedilmez, dolayisiyla bu bir hipotezdir",
+              "no user action found; but a mid-session settings.json edit and a resume are not recorded in the transcript, so this is a hypothesis",
           }
     );
     current = model;

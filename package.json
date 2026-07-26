@@ -1,20 +1,39 @@
 {
   "name": "routeledger",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Which model actually served each turn in your Claude Code session, and where routing silently diverged.",
   "type": "module",
-  "bin": { "routeledger": "dist/cli.js" },
-  "files": ["dist"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "routeledger": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "prepublishOnly": "npm run build && npm test"
   },
-  "keywords": ["claude-code", "model-routing", "audit", "opusplan", "fable", "observability"],
-  "repository": { "type": "git", "url": "git+https://github.com/OnourImpram/routeledger.git" },
+  "keywords": [
+    "claude-code",
+    "model-routing",
+    "audit",
+    "opusplan",
+    "fable",
+    "observability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OnourImpram/routeledger.git"
+  },
   "homepage": "https://github.com/OnourImpram/routeledger#readme",
-  "bugs": { "url": "https://github.com/OnourImpram/routeledger/issues" },
+  "bugs": {
+    "url": "https://github.com/OnourImpram/routeledger/issues"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.0.0",

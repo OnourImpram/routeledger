@@ -1,5 +1,5 @@
 import { readJsonl } from "./jsonl.js";
-import { isBeyondFence } from "./models.js";
+import { isBeyondFence, isParseableVersion } from "./models.js";
 import { checkSubagents } from "./checks/subagents.js";
 import { checkModelChange } from "./checks/modelChange.js";
 import { checkPlanMode } from "./checks/planMode.js";
@@ -8,13 +8,16 @@ import type { Report } from "./render.js";
 import type { Finding, SessionRef } from "./types.js";
 
 /**
- * Tek oturumun tam denetimi: model sayimi, uc kontrol, surum citi.
- * CLI'dan ayri tutulur ki citin fiilen uygulandigi test edilebilsin.
+ * A full audit of one session: model counts, three checks, version fence.
+ * Kept out of the CLI so that the fence can be tested end to end.
  *
- * Cit iki durumda kapanir ve tum bulgular unverifiable'a duser:
- * - beyondFence: oturum, dogrulanan son CC surumunden yeni.
- * - versionsUnknown: kayitlarin hicbirinde surum alani yok. Kanit yoklugu
- *   "guvenli" sayilmaz; o da dogrulanamayan bir formattir.
+ * The fence closes in three cases, and every finding falls to unverifiable:
+ * - beyondFence: the session is newer than the last verified CC version.
+ * - versionsUnknown: no record carries a version field. Absence of evidence
+ *   is not treated as safe; that is an unverified format too.
+ * - unreadableVersions: a version string this tool cannot parse. That is
+ *   less evidence than a missing one, not more, so it cannot pass a gate a
+ *   missing version fails.
  */
 export async function auditSession(session: SessionRef, usedFallback = false): Promise<Report> {
   const modelTotals: Record<string, number> = {};
@@ -38,8 +41,11 @@ export async function auditSession(session: SessionRef, usedFallback = false): P
 
   const versionList = [...versions].sort();
   const versionsUnknown = versionList.length === 0;
+  const unreadableVersions = versionList.filter((v) => !isParseableVersion(v));
   const beyondFence = versionList.some(isBeyondFence);
-  if (beyondFence || versionsUnknown) findings = degradeBeyondFence(findings);
+  if (beyondFence || versionsUnknown || unreadableVersions.length > 0) {
+    findings = degradeBeyondFence(findings);
+  }
 
   return {
     slug: session.slug,
@@ -47,6 +53,7 @@ export async function auditSession(session: SessionRef, usedFallback = false): P
     usedFallback,
     versions: versionList,
     versionsUnknown,
+    unreadableVersions,
     beyondFence,
     modelTotals,
     findings,

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { checkModelChange } from "../src/checks/modelChange.js";
 
 describe("checkModelChange", () => {
-  it("aciklanmamis degisimi isaretler, /model sonrasini isaretlemez", async () => {
+  it("flags the unexplained change, not the one after /model", async () => {
     const findings = await checkModelChange("tests/fixtures/change.jsonl");
     const flagged = findings.filter((f) => f.status !== "ok");
     expect(flagged).toHaveLength(1);

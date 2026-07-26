@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { checkSubagents } from "../src/checks/subagents.js";
 
 describe("checkSubagents", () => {
-  it("uyumlu, uyumsuz ve beyansiz ucunu de dogru siniflar", async () => {
+  it("classifies agreeing, mismatching and undeclared correctly", async () => {
     const findings = await checkSubagents("tests/fixtures/subagents");
     const byId = Object.fromEntries(findings.map((f) => [f.title.split(" ")[0], f]));
 
@@ -13,7 +13,7 @@ describe("checkSubagents", () => {
     expect(byId["agent-ccc"]!.status).toBe("unverifiable");
   });
 
-  it("meta.json bozulmussa sessizce atlamaz, unverifiable bulgu uretir", async () => {
+  it("does not skip a corrupt meta.json in silence; emits an unverifiable finding", async () => {
     const findings = await checkSubagents("tests/fixtures/subagents");
     const ddd = findings.find((f) => f.title.startsWith("agent-ddd"));
     expect(ddd).toBeDefined();
@@ -21,7 +21,7 @@ describe("checkSubagents", () => {
     expect(ddd!.detail).toContain("meta.json");
   });
 
-  it("meta.json var ama transcript yoksa da unverifiable bulgu uretir", async () => {
+  it("emits an unverifiable finding when meta.json exists but the transcript does not", async () => {
     const findings = await checkSubagents("tests/fixtures/subagents");
     const eee = findings.find((f) => f.title.startsWith("agent-eee"));
     expect(eee).toBeDefined();
@@ -29,7 +29,7 @@ describe("checkSubagents", () => {
     expect(eee!.detail).toContain("transcript");
   });
 
-  it("dizin yoksa bos dizi dondurur, patlamaz", async () => {
-    expect(await checkSubagents("tests/fixtures/yok-boyle-dizin")).toEqual([]);
+  it("returns an empty array for a missing directory instead of throwing", async () => {
+    expect(await checkSubagents("tests/fixtures/no-such-dir")).toEqual([]);
   });
 });

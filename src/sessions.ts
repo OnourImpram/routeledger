@@ -7,9 +7,17 @@ export function projectsRoot(): string {
   return join(homedir(), ".claude", "projects");
 }
 
-/** Claude Code cwd'yi dizin adina bu kuralla kodluyor (2026-07-26'da olculdu). */
+/**
+ * Claude Code encodes the cwd into the directory name by replacing every
+ * non-alphanumeric character with a hyphen (measured 2026-07-27 against the
+ * directories on disk: `C:\Users\onuri\.claude` is stored as
+ * `C--Users-onuri--claude`, and a path containing `düzeltilmiş sürüm` as
+ * `d-zeltilmi--s-r-m`). An earlier version replaced only \ / and :, so any
+ * project path holding a dot, a space or a non-ASCII letter missed its own
+ * directory and silently fell back to another project's newest session.
+ */
 export function slugForCwd(cwd: string): string {
-  return cwd.replace(/[\\/:]/g, "-");
+  return cwd.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
 function sessionsInSlug(root: string, slug: string): SessionRef[] {
@@ -31,7 +39,7 @@ function sessionsInSlug(root: string, slug: string): SessionRef[] {
   return out;
 }
 
-/** Butun slug'lardaki tum oturumlar. root testlerde enjekte edilebilir. */
+/** Every session under every slug. root is injectable for tests. */
 export function allSessions(root: string = projectsRoot()): SessionRef[] {
   if (!existsSync(root)) return [];
   const out: SessionRef[] = [];
@@ -43,8 +51,9 @@ export function allSessions(root: string = projectsRoot()): SessionRef[] {
 }
 
 /**
- * Once cwd'den turetilen slug denenir; o dizin yoksa tum slug'lar taranir.
- * Hangisinin kullanildigi cagirana bildirilir ki rapor durust kalsin.
+ * The slug derived from the cwd is tried first; if that directory does not
+ * exist, every slug is scanned. Which one was used is reported back to the
+ * caller so that the report stays honest.
  */
 export function findLatestSession(
   cwd: string,
@@ -65,9 +74,9 @@ export function findLatestSession(
 }
 
 /**
- * Oturumu kimligiyle bulur. Tam eslesme oncelikli; yoksa onek eslesmesi
- * kabul edilir, boylece kisa kimlik yazmak yeter. Birden fazla onek
- * eslesmesi varsa en son degisen secilir.
+ * Finds a session by id. An exact match wins; otherwise a prefix match is
+ * accepted, so typing a short id is enough. If several prefixes match, the
+ * most recently modified one is chosen.
  */
 export function findSessionById(sessionId: string, root: string = projectsRoot()): SessionRef | null {
   const all = allSessions(root);

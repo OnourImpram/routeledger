@@ -2,12 +2,12 @@ import { readJsonl } from "../jsonl.js";
 import type { Finding } from "../types.js";
 
 /**
- * Plan modundaki turn'leri servis eden modeller ile plan disi turn'leri
- * servis edenleri karsilastirir.
+ * Compares the models that served plan-mode turns with the ones that served
+ * the rest of the session.
  *
- * Mod bilgisi KULLANICI turn'undeki permissionMode alanindan alinir;
- * bagimsiz type:"permission-mode" kayitlarinda zaman damgasi ve uuid yoktur
- * (2026-07-26'da olculdu), o yuzden onlara guvenilmez.
+ * The mode is read from permissionMode on the USER turn; standalone
+ * type:"permission-mode" records carry no timestamp and no uuid
+ * (measured 2026-07-26), so they are not trusted.
  */
 export async function checkPlanMode(mainPath: string): Promise<Finding> {
   const planModels = new Set<string>();
@@ -35,22 +35,39 @@ export async function checkPlanMode(mainPath: string): Promise<Finding> {
     return {
       check: "plan-mode",
       status: "unverifiable",
-      title: "plan modu profili",
-      detail: "bu oturumda plan modunda kaydedilmis turn yok",
+      title: "plan-mode profile",
+      detail: "no turn in this session was recorded in plan mode",
     };
   }
 
   const plan = [...planModels].sort();
   const other = [...otherModels].sort();
-  const identical = other.length > 0 && plan.length === other.length && plan.every((m, i) => m === other[i]);
+
+  // No non-plan turn means there was nothing to compare against. Saying "ok"
+  // here would claim a comparison that never happened.
+  if (other.length === 0) {
+    return {
+      check: "plan-mode",
+      status: "unverifiable",
+      title: "plan-mode profile",
+      detail: `plan: ${plan.join(", ")} | execution: - (no turn outside plan mode to compare against)`,
+    };
+  }
+
+  // Any shared model is the signal, not just an identical set. If plan mode
+  // ran on {fable} and execution on {fable, opus}, fable served both sides —
+  // the boundary did not separate them, which is exactly what this check is
+  // for. Strict set-equality missed that and reported it as ok.
+  const shared = plan.filter((m) => other.includes(m));
 
   return {
     check: "plan-mode",
-    status: identical ? "observation" : "ok",
-    title: "plan modu profili",
-    detail: `plan: ${plan.join(", ") || "-"} | uygulama: ${other.join(", ") || "-"}`,
-    inference: identical
-      ? "plan ve uygulama ayni modelde; bir plan-modu yukseltmesi bekliyorduysan ateslememis olabilir. Oturum anindaki yapilandirma transcript'e kaydedilmedigi icin bu bir gozlemdir, hukum degil"
-      : undefined,
+    status: shared.length > 0 ? "observation" : "ok",
+    title: "plan-mode profile",
+    detail: `plan: ${plan.join(", ")} | execution: ${other.join(", ")}`,
+    inference:
+      shared.length > 0
+        ? `${shared.join(", ")} served turns on both sides of the plan-mode boundary; if you expected a plan-mode upgrade, it may never have fired. The configuration at session time is not recorded in the transcript, so this is an observation, not a verdict`
+        : undefined,
   };
 }

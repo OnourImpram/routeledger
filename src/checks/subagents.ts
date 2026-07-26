@@ -4,9 +4,11 @@ import { readJsonl } from "../jsonl.js";
 import { familyOfDeclared, familyOfModelId } from "../models.js";
 import type { Finding } from "../types.js";
 
+/** Only the two fields this check compares. meta.json also carries a
+ *  caller-supplied task description; it is deliberately not modelled here,
+ *  so there is nothing user-derived within reach of a finding. */
 interface Meta {
   agentType?: string;
-  description?: string;
   model?: string;
 }
 
@@ -23,8 +25,8 @@ async function servedModels(jsonlPath: string): Promise<string[]> {
 }
 
 /**
- * Bayrak kontrol: meta.json'daki BEYAN edilen model ile ajanin kendi
- * transcript'indeki FIILEN kosan modeli karsilastirir.
+ * The flag check: compares the model DECLARED in meta.json with the model
+ * that actually SERVED the agent's own transcript.
  */
 export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
   if (!existsSync(subagentDir)) return [];
@@ -39,23 +41,23 @@ export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
     try {
       meta = JSON.parse(readFileSync(join(subagentDir, name), "utf8")) as Meta;
     } catch {
-      // Sessiz atlama yasak: okunamayan beyan da bir bulgudur.
+      // No silent skip: a declaration that cannot be read is itself a finding.
       findings.push({
         check: "subagent-model",
         status: "unverifiable",
-        title: `${agentId} (bilinmeyen tur)`,
-        detail: "meta.json okunamadi ya da gecersiz JSON; beyan edilen model bilinmiyor",
+        title: `${agentId} (unknown type)`,
+        detail: "meta.json unreadable or invalid JSON; declared model unknown",
       });
       continue;
     }
 
     if (!existsSync(jsonlPath)) {
-      // Beyan var ama transcript yok: bu da sessizce gecilmez.
+      // A declaration with no transcript is not passed over in silence either.
       findings.push({
         check: "subagent-model",
         status: "unverifiable",
         title: `${agentId} (${meta.agentType ?? "unknown"})`,
-        detail: "meta.json var ama ajanin transcript'i yok; fiilen kosan model bilinmiyor",
+        detail: "meta.json exists but the agent transcript does not; served model unknown",
       });
       continue;
     }
@@ -69,7 +71,7 @@ export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
         check: "subagent-model",
         status: "unverifiable",
         title: `${agentId} (${agentType})`,
-        detail: "ajanin transcript'inde hicbir model kaydi yok",
+        detail: "the agent transcript records no model at all",
       });
       continue;
     }
@@ -79,7 +81,7 @@ export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
         check: "subagent-model",
         status: "unverifiable",
         title: `${agentId} (${agentType})`,
-        detail: `beyan edilen model yok; fiilen: ${served.join(", ")}`,
+        detail: `no declared model; served: ${served.join(", ")}`,
       });
       continue;
     }
@@ -92,7 +94,7 @@ export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
       check: "subagent-model",
       status: want === "unknown" ? "unverifiable" : allMatch ? "ok" : "mismatch",
       title: `${agentId} (${agentType})`,
-      detail: `beyan: ${declared} -> fiilen: ${served.join(", ")}`,
+      detail: `declared: ${declared} -> served: ${served.join(", ")}`,
     });
   }
 

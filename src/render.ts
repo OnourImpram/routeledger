@@ -7,20 +7,22 @@ export interface Report {
   usedFallback: boolean;
   versions: string[];
   beyondFence: boolean;
-  /** true ise kayitlarin hicbirinde CC surum alani yok — cit yine kapanir. */
+  /** true when no record carries a version field — the fence still closes. */
   versionsUnknown?: boolean;
+  /** version strings that could not be parsed — the fence closes on these too. */
+  unreadableVersions?: string[];
   modelTotals: Record<string, number>;
   findings: Finding[];
-  /** true ise uyumlu bulgular da tek tek yazilir. */
+  /** true prints matching findings individually as well. */
   showAll?: boolean;
 }
 
-/** Cit kapali mi: dogrulanmamis surum YA DA surum bilgisi hic yok. */
+/** Fence closed: version beyond the tested one, missing, or unreadable. */
 function fenced(r: Report): boolean {
-  return r.beyondFence || r.versionsUnknown === true;
+  return r.beyondFence || r.versionsUnknown === true || (r.unreadableVersions?.length ?? 0) > 0;
 }
 
-/** Once dikkat isteyenler. Ayni oncelikteki bulgularin sirasi korunur. */
+/** What needs attention first. Order within a status is preserved. */
 const PRIORITY: Record<Finding["status"], number> = {
   mismatch: 0,
   observation: 1,
@@ -36,10 +38,10 @@ const LABEL: Record<Finding["status"], string> = {
 };
 
 /**
- * Surum citi: dogrulanmamis bir CC surumunde hicbir iddia uretilmez.
- * mismatch/ok/observation unverifiable'a duser; uretilMEyen iddia detayda
- * saklanir ki kullanici neyin geri cekildigini gorsun. Zaten unverifiable
- * olan oldugu gibi kalir.
+ * Version fence: on an unverified Claude Code version no claim is made.
+ * mismatch/ok/observation fall to unverifiable; the claim that was NOT
+ * made is kept in the detail line so you can see what was withdrawn.
+ * Findings that were already unverifiable are left untouched.
  */
 export function degradeBeyondFence(findings: Finding[]): Finding[] {
   return findings.map((f) =>
@@ -48,12 +50,12 @@ export function degradeBeyondFence(findings: Finding[]): Finding[] {
       : {
           ...f,
           status: "unverifiable" as const,
-          detail: `${f.detail} (surum citi: dogrulanmamis surum, "${f.status}" iddiasi uretilmedi)`,
+          detail: `${f.detail} (version fence: unverified version, no "${f.status}" claim made)`,
         }
   );
 }
 
-/** Makine-okunur rapor. Metin ciktinin aksine daima TUM bulgulari icerir. */
+/** Machine-readable report. Unlike the text output it always has every finding. */
 export function renderJson(r: Report): string {
   return (
     JSON.stringify(
@@ -66,8 +68,10 @@ export function renderJson(r: Report): string {
           lastTested: LAST_TESTED_CC_VERSION,
           beyondFence: r.beyondFence,
           versionsUnknown: r.versionsUnknown ?? false,
+          unreadableVersions: r.unreadableVersions ?? [],
+          closed: fenced(r),
         },
-        /** fenced=true ise modelsServed ham sayimdir, dogrulanmis olay degil. */
+        /** when fenced, modelsServed is a raw count, not a verified fact. */
         modelsServedVerified: !fenced(r),
         modelsServed: r.modelTotals,
         findings: r.findings,
@@ -81,32 +85,41 @@ export function renderJson(r: Report): string {
 export function render(r: Report): string {
   const lines: string[] = [];
   lines.push(`routeledger — session ${r.sessionId}`);
-  lines.push(`  project: ${r.slug}${r.usedFallback ? "  (cwd eslesmedi; en son oturum secildi)" : ""}`);
-  lines.push(`  claude code: ${r.versions.join(", ") || "bilinmiyor"}`);
+  lines.push(`  project: ${r.slug}${r.usedFallback ? "  (no session here; audited the most recent one)" : ""}`);
+  lines.push(`  claude code: ${r.versions.join(", ") || "unknown"}`);
   lines.push("");
 
+  // Independent conditions, not a chain: a session can carry both a version
+  // beyond the fence and another one this tool cannot read, and hiding the
+  // second behind the first would under-report why the fence closed.
   if (r.beyondFence) {
     lines.push(
-      `  ! Bu oturum routeledger'in dogrulandigi surumden (${LAST_TESTED_CC_VERSION}) yeni.`
+      `  ! This session is newer than the version routeledger was verified on (${LAST_TESTED_CC_VERSION}).`
     );
-    lines.push("    Bulgular unverifiable sayilir; transcript formati degismis olabilir.");
+    lines.push("    Findings are treated as unverifiable; the format may have changed.");
     lines.push("");
-  } else if (r.versionsUnknown === true) {
-    lines.push("  ! Kayitlarin hicbirinde Claude Code surum alani yok.");
-    lines.push("    Format dogrulanamiyor; bulgular unverifiable sayilir.");
+  }
+  if (r.versionsUnknown === true) {
+    lines.push("  ! No record carries a Claude Code version field.");
+    lines.push("    The format cannot be verified; findings are treated as unverifiable.");
+    lines.push("");
+  }
+  if (r.unreadableVersions !== undefined && r.unreadableVersions.length > 0) {
+    lines.push(`  ! Unreadable Claude Code version: ${r.unreadableVersions.join(", ")}`);
+    lines.push("    The format cannot be verified; findings are treated as unverifiable.");
     lines.push("");
   }
 
-  lines.push(fenced(r) ? "  MODELS SERVED (ham sayim — format dogrulanmadi)" : "  MODELS SERVED");
+  lines.push(fenced(r) ? "  MODELS SERVED (raw count — format unverified)" : "  MODELS SERVED");
   const entries = Object.entries(r.modelTotals).sort((a, b) => b[1] - a[1]);
-  if (entries.length === 0) lines.push("    (kayit yok)");
+  if (entries.length === 0) lines.push("    (no records)");
   for (const [model, count] of entries) {
-    lines.push(`    ${model.padEnd(28)} ${String(count).padStart(6)} turn`);
+    lines.push(`    ${model.padEnd(28)} ${String(count).padStart(6)} ${count === 1 ? "turn" : "turns"}`);
   }
   lines.push("");
 
   lines.push("  FINDINGS");
-  if (r.findings.length === 0) lines.push("    (bulgu yok)");
+  if (r.findings.length === 0) lines.push("    (none)");
 
   const sorted = r.findings
     .map((f, i) => ({ f, i }))
@@ -120,12 +133,15 @@ export function render(r: Report): string {
     if (collapseOk && f.status === "ok") continue;
     lines.push(`    [${LABEL[f.status]}] ${f.title}`);
     lines.push(`                    ${f.detail}`);
-    if (f.inference) lines.push(`                    cikarim: ${f.inference}`);
+    if (f.inference) lines.push(`                    inference: ${f.inference}`);
   }
 
   if (collapseOk) {
-    lines.push(`    [${LABEL.ok}] ${okCount} bulgu uyumlu — beyan edilen model ile fiilen kosan ayni`);
-    lines.push("                    hepsini gormek icin: routeledger --all");
+    // Deliberately says nothing about WHY each one is ok: these findings come
+    // from different checks (declaration match, explained change, plan mode),
+    // and one sentence describing them all would over-claim for most of them.
+    lines.push(`    [${LABEL.ok}] ${okCount} findings raised nothing`);
+    lines.push("                    to see each of them: routeledger --all");
   }
 
   lines.push("");

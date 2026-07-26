@@ -1,6 +1,6 @@
 export type Family = "fable" | "opus" | "sonnet" | "haiku" | "unknown";
 
-/** routeledger'in uzerinde fiilen dogrulandigi en yeni Claude Code surumu. */
+/** The newest Claude Code version routeledger has actually been verified on. */
 export const LAST_TESTED_CC_VERSION = "2.1.220";
 
 const PREFIXES: ReadonlyArray<readonly [string, Family]> = [
@@ -28,6 +28,19 @@ export function familyOfDeclared(declared: string): Family {
   return familyOfModelId(s);
 }
 
+/**
+ * A version string this tool knows how to compare. Anything else is not
+ * "old" — it is unreadable, which is strictly less evidence than a version
+ * that is merely missing. compareVersions() parses per segment with
+ * `|| 0`, so "banana" would otherwise compare as 0.0.0 and walk straight
+ * under the fence at full confidence.
+ */
+const VERSION_RE = /^\d+(\.\d+)*(-[0-9A-Za-z.-]+)?$/;
+
+export function isParseableVersion(version: string): boolean {
+  return VERSION_RE.test(version.trim());
+}
+
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((n) => Number.parseInt(n, 10) || 0);
   const pb = b.split(".").map((n) => Number.parseInt(n, 10) || 0);
@@ -40,7 +53,7 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Test edilmemis, daha yeni bir surumde iddia uretmemek icin. */
+/** So that no claim is made on an untested, newer version. */
 export function isBeyondFence(version: string): boolean {
   return compareVersions(version, LAST_TESTED_CC_VERSION) > 0;
 }

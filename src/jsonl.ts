@@ -2,8 +2,8 @@ import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 
 /**
- * Bir JSONL dosyasini satir satir akitir. Transcript'ler 200MB+ olabilir;
- * dosya asla butunuyle bellege alinmaz. Bozuk satirlar sessizce atlanir.
+ * Streams a JSONL file line by line. Transcripts can exceed 200MB, so the
+ * file is never held in memory whole. Malformed lines are skipped.
  */
 export async function* readJsonl(path: string): AsyncGenerator<Record<string, unknown>> {
   const rl = createInterface({
