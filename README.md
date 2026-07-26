@@ -69,7 +69,7 @@ routeledger records the Claude Code version behind every session it reads. On a 
 
 ## Honest limits
 
-- The environment a session ran with — including `ANTHROPIC_DEFAULT_OPUS_MODEL` and friends — is **not recorded anywhere in the transcript**. routeledger therefore cannot prove that an alias remap was intended, or that one silently went missing on resume. It will not guess.
+- The environment a session ran with — `ANTHROPIC_DEFAULT_OPUS_MODEL` and friends — is **not recorded as structured data anywhere in the transcript**. routeledger therefore cannot prove that an alias remap was intended, or that one silently went missing on resume. It will not guess. (Those variable names can turn up inside a transcript as ordinary conversation text, because someone discussed them. That is not a record of the environment, and routeledger does not read it as one.)
 - `unverifiable` is a real answer here and appears often. It means the evidence needed is absent, not that everything is fine.
 - Findings describe one session. There is no history, no policy file, and no CI gate in this version.
 
