@@ -9,7 +9,17 @@ export interface Report {
   beyondFence: boolean;
   modelTotals: Record<string, number>;
   findings: Finding[];
+  /** true ise uyumlu bulgular da tek tek yazilir. */
+  showAll?: boolean;
 }
+
+/** Once dikkat isteyenler. Ayni oncelikteki bulgularin sirasi korunur. */
+const PRIORITY: Record<Finding["status"], number> = {
+  mismatch: 0,
+  observation: 1,
+  unverifiable: 2,
+  ok: 3,
+};
 
 const LABEL: Record<Finding["status"], string> = {
   ok: "OK          ",
@@ -43,11 +53,27 @@ export function render(r: Report): string {
 
   lines.push("  FINDINGS");
   if (r.findings.length === 0) lines.push("    (bulgu yok)");
-  for (const f of r.findings) {
+
+  const sorted = r.findings
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => PRIORITY[a.f.status] - PRIORITY[b.f.status] || a.i - b.i)
+    .map((x) => x.f);
+
+  const okCount = sorted.filter((f) => f.status === "ok").length;
+  const collapseOk = !r.showAll && okCount > 3;
+
+  for (const f of sorted) {
+    if (collapseOk && f.status === "ok") continue;
     lines.push(`    [${LABEL[f.status]}] ${f.title}`);
     lines.push(`                    ${f.detail}`);
     if (f.inference) lines.push(`                    cikarim: ${f.inference}`);
   }
+
+  if (collapseOk) {
+    lines.push(`    [${LABEL.ok}] ${okCount} bulgu uyumlu — beyan edilen model ile fiilen kosan ayni`);
+    lines.push("                    hepsini gormek icin: routeledger --all");
+  }
+
   lines.push("");
   return lines.join("\n");
 }

@@ -31,12 +31,25 @@ function sessionsInSlug(root: string, slug: string): SessionRef[] {
   return out;
 }
 
+/** Butun slug'lardaki tum oturumlar. root testlerde enjekte edilebilir. */
+export function allSessions(root: string = projectsRoot()): SessionRef[] {
+  if (!existsSync(root)) return [];
+  const out: SessionRef[] = [];
+  for (const slug of readdirSync(root)) {
+    if (!statSync(join(root, slug)).isDirectory()) continue;
+    out.push(...sessionsInSlug(root, slug));
+  }
+  return out;
+}
+
 /**
  * Once cwd'den turetilen slug denenir; o dizin yoksa tum slug'lar taranir.
  * Hangisinin kullanildigi cagirana bildirilir ki rapor durust kalsin.
  */
-export function findLatestSession(cwd: string): { session: SessionRef; usedFallback: boolean } | null {
-  const root = projectsRoot();
+export function findLatestSession(
+  cwd: string,
+  root: string = projectsRoot()
+): { session: SessionRef; usedFallback: boolean } | null {
   if (!existsSync(root)) return null;
 
   const preferred = sessionsInSlug(root, slugForCwd(cwd));
@@ -45,12 +58,22 @@ export function findLatestSession(cwd: string): { session: SessionRef; usedFallb
     return { session: preferred[0]!, usedFallback: false };
   }
 
-  const all: SessionRef[] = [];
-  for (const slug of readdirSync(root)) {
-    if (!statSync(join(root, slug)).isDirectory()) continue;
-    all.push(...sessionsInSlug(root, slug));
-  }
+  const all = allSessions(root);
   if (all.length === 0) return null;
   all.sort((a, b) => b.mtimeMs - a.mtimeMs);
   return { session: all[0]!, usedFallback: true };
+}
+
+/**
+ * Oturumu kimligiyle bulur. Tam eslesme oncelikli; yoksa onek eslesmesi
+ * kabul edilir, boylece kisa kimlik yazmak yeter. Birden fazla onek
+ * eslesmesi varsa en son degisen secilir.
+ */
+export function findSessionById(sessionId: string, root: string = projectsRoot()): SessionRef | null {
+  const all = allSessions(root);
+  const exact = all.filter((s) => s.sessionId === sessionId);
+  const pool = exact.length > 0 ? exact : all.filter((s) => s.sessionId.startsWith(sessionId));
+  if (pool.length === 0) return null;
+  pool.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return pool[0]!;
 }

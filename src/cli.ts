@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { findLatestSession } from "./sessions.js";
+import { findLatestSession, findSessionById } from "./sessions.js";
 import { readJsonl } from "./jsonl.js";
 import { isBeyondFence } from "./models.js";
 import { checkSubagents } from "./checks/subagents.js";
@@ -8,13 +8,46 @@ import { checkPlanMode } from "./checks/planMode.js";
 import { render } from "./render.js";
 import type { Finding } from "./types.js";
 
+const USAGE = `routeledger — hangi model fiilen cevap verdi
+
+  routeledger               en son oturumu denetler
+  routeledger <session-id>  belirtilen oturumu denetler (onek yeter)
+  --all                     uyumlu bulgulari da tek tek yazar
+
+Salt okunur. Aga cikmaz, hicbir dosyaya yazmaz.
+`;
+
 async function main(): Promise<void> {
-  const found = findLatestSession(process.cwd());
-  if (found === null) {
-    process.stdout.write("routeledger: ~/.claude/projects altinda oturum bulunamadi.\n");
+  const argv = process.argv.slice(2);
+
+  if (argv.includes("-h") || argv.includes("--help")) {
+    process.stdout.write(USAGE);
     return;
   }
-  const { session, usedFallback } = found;
+
+  const showAll = argv.includes("--all");
+  const arg = argv.find((a) => !a.startsWith("-"));
+
+  let session;
+  let usedFallback = false;
+
+  if (arg !== undefined) {
+    const byId = findSessionById(arg);
+    if (byId === null) {
+      process.stderr.write(`routeledger: "${arg}" ile eslesen oturum yok.\n`);
+      process.exitCode = 1;
+      return;
+    }
+    session = byId;
+  } else {
+    const found = findLatestSession(process.cwd());
+    if (found === null) {
+      process.stdout.write("routeledger: ~/.claude/projects altinda oturum bulunamadi.\n");
+      return;
+    }
+    session = found.session;
+    usedFallback = found.usedFallback;
+  }
 
   const modelTotals: Record<string, number> = {};
   const versions = new Set<string>();
@@ -45,6 +78,7 @@ async function main(): Promise<void> {
       beyondFence: versionList.some(isBeyondFence),
       modelTotals,
       findings,
+      showAll,
     })
   );
 }
