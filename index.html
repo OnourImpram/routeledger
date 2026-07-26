@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>routeledger — which model actually answered?</title>
+<meta name="description" content="A read-only CLI that reads your Claude Code transcript and reports which model actually served each turn, and where routing quietly diverged from what you configured.">
+<link rel="icon" href="assets/favicon.png" type="image/png">
+<meta property="og:title" content="routeledger — which model actually answered?">
+<meta property="og:description" content="Claude Code can change models mid-session and tell you nothing. Your transcript recorded it. routeledger reads it back.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://onourimpram.github.io/routeledger/">
+<meta property="og:image" content="https://onourimpram.github.io/routeledger/assets/routeledger-og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   routeledger — instrument-trace lane
+   graphite (ground) · filament (the one signal) · hatching (no evidence)
+   Colour carries meaning only. Nothing here is decoration.
+   ───────────────────────────────────────────────────────────── */
+
+@font-face{font-family:'Archivo';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url('fonts/archivo-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'Archivo';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url('fonts/archivo-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Martian Mono';font-style:normal;font-weight:100 800;font-display:swap;
+  src:url('fonts/martian-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'Martian Mono';font-style:normal;font-weight:100 800;font-display:swap;
+  src:url('fonts/martian-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+:root{
+  color-scheme:dark;
+
+  --graphite:    oklch(0.170 0.006 240);
+  --graphite-2:  oklch(0.212 0.007 240);
+  --graphite-3:  oklch(0.258 0.008 240);
+  --rule:        oklch(0.320 0.009 240);
+  --rule-soft:   oklch(0.270 0.008 240);
+
+  --trace:       oklch(0.985 0.002 240);
+  --trace-2:     oklch(0.812 0.008 240);
+  --trace-3:     oklch(0.680 0.010 240);
+
+  --filament:      oklch(0.800 0.145 68);
+  --filament-dim:  oklch(0.660 0.125 68);
+  --filament-tint: oklch(0.800 0.145 68 / 0.14);
+  --channel-2:     oklch(0.790 0.090 205);
+
+  --font:  'Archivo', ui-sans-serif, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --mono:  'Martian Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+
+  --maxw:1080px;
+  --pad:clamp(20px, 5vw, 48px);
+  --r:2px;
+
+  --ease:cubic-bezier(0.23, 1, 0.32, 1);
+  --fast:140ms;
+
+  --z-base:0; --z-raised:10; --z-nav:100;
+}
+
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  background:var(--graphite);
+  color:var(--trace-2);
+  font-family:var(--font);
+  font-size:clamp(1rem, 0.97rem + 0.16vw, 1.0625rem);
+  font-weight:380;
+  line-height:1.68;
+  letter-spacing:0.001em;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* A single wash of light from the top-left, like one lamp over a console.
+   Not a gradient decoration — it establishes the room. */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:var(--z-base);
+  background:radial-gradient(120ch 70ch at 12% -10%, oklch(0.34 0.012 240 / 0.55), transparent 62%);
+}
+
+.wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--pad);position:relative;z-index:var(--z-raised);}
+/* The strip breaks the text column on purpose: it is the page's one loud thing.
+   Done with a real container, not 100vw math, so a scrollbar can never cause overflow. */
+.bleed{padding-inline:var(--pad);position:relative;z-index:var(--z-raised);}
+.bleed-inner{max-width:1400px;margin-inline:auto;}
+
+h1,h2,h3{color:var(--trace);margin:0;text-wrap:balance;}
+h1{
+  font-size:clamp(2.35rem, 1.4rem + 4.4vw, 4.6rem);
+  font-weight:300;
+  letter-spacing:-0.035em;
+  line-height:1.02;
+}
+h2{
+  font-size:clamp(1.5rem, 1.15rem + 1.6vw, 2.15rem);
+  font-weight:400;
+  letter-spacing:-0.022em;
+  line-height:1.18;
+}
+h3{font-size:1.0625rem;font-weight:600;letter-spacing:-0.004em;line-height:1.35;}
+p{margin:0;max-width:68ch;text-wrap:pretty;}
+a{color:var(--trace);text-decoration-color:var(--rule);text-underline-offset:3px;
+  transition:color var(--fast) ease, text-decoration-color var(--fast) ease;}
+a:hover{color:var(--filament);text-decoration-color:var(--filament-dim);}
+:focus-visible{outline:2px solid var(--filament);outline-offset:3px;border-radius:1px;}
+code,kbd,samp{font-family:var(--mono);font-size:0.86em;font-weight:400;}
+
+/* ── masthead ───────────────────────────────────────────── */
+.top{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--s4);
+  padding-block:var(--s5) 0;flex-wrap:wrap;
+}
+.mark{font-family:var(--mono);font-size:0.9375rem;font-weight:500;letter-spacing:-0.03em;color:var(--trace);}
+.meta{font-family:var(--mono);font-size:0.75rem;font-weight:300;color:var(--trace-3);letter-spacing:0.01em;}
+.meta a{text-decoration:none;}
+
+/* ── hero ───────────────────────────────────────────────── */
+.hero{padding-block:clamp(var(--s7), 9vw, var(--s9)) var(--s6);}
+.lede{margin-top:var(--s5);font-size:clamp(1.0625rem, 1rem + 0.35vw, 1.1875rem);color:var(--trace-2);max-width:60ch;}
+.lede strong{color:var(--trace);font-weight:520;}
+
+.cmd{display:flex;align-items:stretch;gap:0;margin-top:var(--s6);max-width:26rem;
+  border:1px solid var(--rule);border-radius:var(--r);background:var(--graphite-2);}
+.cmd code{flex:1;min-width:0;padding:0.72rem 0.9rem;color:var(--trace);font-size:0.8125rem;letter-spacing:-0.02em;
+  overflow-x:auto;white-space:nowrap;}
+.cmd code .sh{color:var(--filament);user-select:none;}
+.copy{
+  flex:0 0 auto;min-width:56px;min-height:44px;padding-inline:0.9rem;
+  background:none;border:0;border-left:1px solid var(--rule);
+  color:var(--trace-3);font-family:var(--mono);font-size:0.6875rem;letter-spacing:0.06em;
+  text-transform:uppercase;cursor:pointer;
+  transition:color var(--fast) ease, transform 160ms ease-out;
+}
+.copy:hover{color:var(--filament);}
+.copy:active{transform:scale(0.97);}
+.copy[data-done="1"]{color:var(--filament);}
+
+/* ── the recorder strip: the one signature ──────────────── */
+.strip{margin-top:clamp(var(--s6), 6vw, var(--s7));}
+.strip-frame{
+  border:1px solid var(--rule-soft);border-radius:var(--r);
+  background:var(--graphite-2);
+  padding:clamp(var(--s4), 2.5vw, var(--s6)) clamp(var(--s3), 2vw, var(--s5));
+  overflow:hidden;
+}
+.recorder{display:block;width:100%;height:auto;}
+.recorder .base{stroke:var(--rule-soft);stroke-width:1;stroke-dasharray:2 5;}
+.recorder .lbl{
+  font-family:var(--mono);font-size:11px;font-weight:300;
+  fill:var(--trace-3);letter-spacing:0.02em;
+}
+.recorder .tk{stroke:var(--rule);stroke-width:1;opacity:0.85;}
+.recorder .tk.un{stroke:var(--filament-dim);stroke-width:1.25;opacity:1;}
+.recorder .trace{fill:none;stroke:var(--filament);stroke-width:2;stroke-linejoin:round;stroke-linecap:square;}
+.recorder .mk{fill:var(--graphite-2);stroke:var(--filament);stroke-width:2;}
+.recorder .sb{fill:var(--trace-3);opacity:0.5;}
+.recorder .sb.un{fill:url(#hatch);opacity:1;}
+
+.strip-key{
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap:var(--s3) var(--s5);
+  margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--rule-soft);
+  font-family:var(--mono);font-size:0.6875rem;font-weight:300;color:var(--trace-3);letter-spacing:0.01em;
+}
+.strip-key span{display:inline-flex;align-items:center;gap:0.5rem;}
+.strip-key i{width:14px;height:10px;flex:none;display:inline-block;}
+.i-trace{background:var(--filament);height:2px !important;}
+.i-un{background:var(--filament-dim);width:2px !important;height:14px !important;}
+.i-hatch{
+  background-image:repeating-linear-gradient(45deg, var(--trace-3) 0 1.6px, transparent 1.6px 7px);
+  border:0;
+}
+.i-solid{background:var(--trace-3);opacity:0.5;}
+
+.strip-note{margin-top:var(--s5);font-size:0.9375rem;color:var(--trace-3);max-width:74ch;}
+.strip-note b{color:var(--trace-2);font-weight:500;}
+
+/* ── sections ───────────────────────────────────────────── */
+section{padding-block:clamp(var(--s7), 7.5vw, 88px);border-top:1px solid var(--rule-soft);}
+section:first-of-type{border-top:0;padding-top:clamp(var(--s8), 9vw, 104px);}
+section > *{min-width:0;}
+.intro{margin-top:var(--s5);font-size:1.0625rem;}
+
+/* the grammar: a legend, deliberately not a card grid */
+.grammar{margin-top:var(--s6);border-top:1px solid var(--rule-soft);}
+.row{
+  display:grid;grid-template-columns:minmax(9.5rem, 15rem) 1fr;gap:var(--s3) var(--s6);
+  padding-block:var(--s5);border-bottom:1px solid var(--rule-soft);align-items:start;
+}
+.row > *{min-width:0;}
+.usage > div, .near > div{min-width:0;}
+.row dt{
+  font-family:var(--mono);font-size:0.8125rem;font-weight:500;letter-spacing:-0.01em;
+  color:var(--trace);display:flex;align-items:center;gap:0.65rem;
+}
+.row dd{margin:0;color:var(--trace-2);}
+.row dd em{font-style:normal;color:var(--trace-3);display:block;margin-top:var(--s2);font-size:0.9375rem;}
+.chip{width:10px;height:10px;flex:none;border-radius:1px;}
+.chip-ok{background:var(--trace-3);opacity:0.55;}
+.chip-obs{background:var(--channel-2);}
+.chip-un{background-image:repeating-linear-gradient(45deg, var(--trace-3) 0 1.6px, transparent 1.6px 7px);}
+
+.quote{
+  margin:var(--s6) 0 0;padding:0;border:0;
+  font-size:clamp(1.25rem, 1rem + 1.1vw, 1.6rem);font-weight:300;
+  letter-spacing:-0.022em;line-height:1.32;color:var(--trace);max-width:24ch;
+}
+
+/* checks: alternating asymmetric rows, not three equal columns */
+.check{
+  display:grid;grid-template-columns:1fr;gap:var(--s4);
+  padding-block:var(--s6);border-bottom:1px solid var(--rule-soft);
+}
+/* Grid and flex items default to min-width:auto, so a wide <pre> child refuses
+   to shrink and drags the whole page wider. The scrollbar belongs inside .out,
+   which only happens once the grid item itself is allowed to be narrow. */
+.check > *{min-width:0;}
+.check:first-of-type{border-top:1px solid var(--rule-soft);margin-top:var(--s6);}
+@media (min-width:820px){
+  .check{grid-template-columns:0.85fr 1.15fr;gap:var(--s7);align-items:start;}
+}
+.check-body p{margin-top:var(--s3);color:var(--trace-2);}
+.limit{
+  margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--rule-soft);
+  font-size:0.9375rem;color:var(--trace-3);
+}
+.limit b{color:var(--trace-2);font-weight:500;}
+
+.out{
+  font-family:var(--mono);font-size:clamp(0.6875rem, 0.63rem + 0.22vw, 0.78rem);
+  font-weight:300;line-height:1.85;letter-spacing:-0.01em;
+  background:var(--graphite-2);border:1px solid var(--rule-soft);border-radius:var(--r);
+  padding:var(--s4);margin:0;overflow-x:auto;color:var(--trace-2);white-space:pre;
+}
+.out .k{color:var(--trace-3);}
+.out .f{color:var(--filament);}
+.out .c{color:var(--channel-2);}
+.out .d{color:var(--trace-3);opacity:0.85;}
+
+/* refusals */
+.refuse{margin:var(--s7) 0 0;padding:0;list-style:none;display:grid;gap:0;}
+.refuse li{
+  padding-block:var(--s4);border-bottom:1px solid var(--rule-soft);
+  display:grid;grid-template-columns:auto 1fr;gap:var(--s4);align-items:baseline;
+}
+.refuse li:first-child{border-top:1px solid var(--rule-soft);}
+.refuse b{
+  font-family:var(--mono);font-size:0.75rem;font-weight:400;color:var(--trace-3);
+  letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;
+}
+.refuse span{color:var(--trace-2);}
+.exception{
+  margin-top:var(--s5);padding:var(--s5);
+  border:1px solid var(--rule-soft);border-radius:var(--r);background:var(--graphite-2);
+}
+.exception p{font-size:0.9375rem;color:var(--trace-2);}
+.exception p + p{margin-top:var(--s3);color:var(--trace-3);}
+
+/* usage */
+.usage{margin-top:var(--s7);display:grid;gap:var(--s5);}
+@media (min-width:760px){.usage{grid-template-columns:repeat(2, 1fr);gap:var(--s5) var(--s7);}}
+/* Amber means one thing on this page: the model that served. It is not a
+   heading colour. Four amber headings here competed with the trace and said
+   nothing — removed. */
+.usage div h3{font-family:var(--mono);font-size:0.8125rem;font-weight:500;color:var(--trace);letter-spacing:-0.01em;}
+.usage div p{margin-top:var(--s2);font-size:0.9375rem;color:var(--trace-2);}
+
+.near{margin-top:var(--s6);display:grid;gap:var(--s5);}
+@media (min-width:760px){.near{grid-template-columns:repeat(2,1fr);gap:var(--s7);}}
+.near h3{font-family:var(--mono);font-size:0.8125rem;font-weight:500;letter-spacing:-0.015em;}
+.near p{margin-top:var(--s2);font-size:0.9375rem;color:var(--trace-2);}
+
+footer{
+  border-top:1px solid var(--rule-soft);padding-block:var(--s6) var(--s8);
+  display:flex;flex-wrap:wrap;gap:var(--s3) var(--s5);align-items:baseline;
+  justify-content:space-between;
+  font-family:var(--mono);font-size:0.75rem;font-weight:300;color:var(--trace-3);letter-spacing:0.01em;
+}
+footer nav{display:flex;flex-wrap:wrap;gap:var(--s5);}
+footer a{text-decoration:none;}
+
+/* ── motion: one orchestrated load, then stillness ──────── */
+@media (prefers-reduced-motion:no-preference){
+  .recorder .trace{
+    stroke-dasharray:1000;stroke-dashoffset:1000;
+    animation:draw 1150ms var(--ease) 180ms forwards;
+  }
+  .recorder .tk,.recorder .mk,.recorder .sb,.recorder .lbl,.recorder .base{
+    opacity:0;animation:appear 420ms var(--ease) forwards;
+  }
+  .recorder .base,.recorder .lbl{animation-delay:60ms;}
+  .recorder .tk{animation-delay:900ms;}
+  .recorder .mk{animation-delay:1180ms;}
+  .recorder .sb{animation-delay:1320ms;}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  @keyframes appear{to{opacity:1;}}
+  .recorder .sb{animation-name:appear-sb;}
+  .recorder .sb.un{animation-name:appear-sb-un;}
+  @keyframes appear-sb{to{opacity:0.5;}}
+  @keyframes appear-sb-un{to{opacity:1;}}
+}
+
+@media (max-width:520px){
+  .recorder{min-height:120px;}
+  .row{grid-template-columns:1fr;gap:var(--s2);}
+  .refuse li{grid-template-columns:1fr;gap:var(--s1);}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <span class="mark">routeledger</span>
+    <span class="meta">v0.2.0 · MIT · <a href="https://www.npmjs.com/package/routeledger">npm</a> · <a href="https://github.com/OnourImpram/routeledger">source</a></span>
+  </header>
+
+  <div class="hero">
+    <h1>Which model actually answered?</h1>
+    <p class="lede">Claude Code can change the model underneath you. A fallback fires, a plan-mode boundary is crossed, an alias is remapped in your environment. <strong>The work continues, the answers keep coming, and nothing says a word.</strong> Your transcript recorded all of it. routeledger reads it back.</p>
+
+    <div class="cmd">
+      <code id="cmd"><span class="sh">$</span> npx routeledger</code>
+      <button class="copy" data-copy="npx routeledger" aria-label="Copy the install command">copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="bleed">
+  <div class="bleed-inner strip">
+    <div class="strip-frame">
+      <svg class="recorder" viewBox="0 0 1200 258" role="img" aria-labelledby="rec-t rec-d">
+      <title id="rec-t">Model routing trace of one real Claude Code session</title>
+      <desc id="rec-d">Upper channel: the model that served each of 11,398 turns, stepping between Fable 5 and Opus 4.8 across nine changes. Two changes, close together near the end of the session, have no recorded cause. Lower channel: 22 subagent runs with no time axis, 13 solid because a declared model existed to compare against, 9 hatched because no declaration was recorded.</desc>
+      <defs>
+        <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="7" stroke="var(--trace-3)" stroke-width="1.7"/>
+        </pattern>
+      </defs>
+      <line class="base" x1="126.0" y1="44.0" x2="1186.0" y2="44.0"/>
+      <line class="base" x1="126.0" y1="132.0" x2="1186.0" y2="132.0"/>
+      <text class="lbl" x="112" y="48.0" text-anchor="end">fable 5</text>
+      <text class="lbl" x="112" y="136.0" text-anchor="end">opus 4.8</text>
+      <text class="lbl" x="112" y="225.0" text-anchor="end">subagents</text>
+      <line class="tk" x1="136.69" y1="34" x2="136.69" y2="142"/>
+      <line class="tk" x1="153.99" y1="34" x2="153.99" y2="142"/>
+      <line class="tk" x1="559.93" y1="34" x2="559.93" y2="142"/>
+      <line class="tk" x1="582.34" y1="34" x2="582.34" y2="142"/>
+      <line class="tk" x1="856.97" y1="34" x2="856.97" y2="142"/>
+      <line class="tk un" x1="1028.37" y1="34" x2="1028.37" y2="142"/>
+      <line class="tk" x1="1030.23" y1="34" x2="1030.23" y2="142"/>
+      <line class="tk un" x1="1032.83" y1="34" x2="1032.83" y2="142"/>
+      <line class="tk" x1="1045.48" y1="34" x2="1045.48" y2="142"/>
+      <path class="trace" d="M 126.0 132.0 L 136.69 132.0 L 136.69 44.0 L 153.99 44.0 L 153.99 132.0 L 559.93 132.0 L 559.93 44.0 L 582.34 44.0 L 582.34 132.0 L 856.97 132.0 L 856.97 44.0 L 1028.37 44.0 L 1028.37 132.0 L 1030.23 132.0 L 1030.23 44.0 L 1032.83 44.0 L 1032.83 132.0 L 1045.48 132.0 L 1045.48 44.0 L 1186.0 44.0" pathLength="1000"/>
+      <circle class="mk" cx="1028.37" cy="132.0" r="5.5"/>
+      <circle class="mk" cx="1032.83" cy="132.0" r="5.5"/>
+      <rect class="sb un" x="126.0" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="174.59" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="223.18" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="271.77" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="320.36" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="368.95" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="417.55" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="466.14" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="514.73" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="563.32" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="611.91" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="660.5" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="709.09" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="757.68" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="806.27" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="854.86" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="903.45" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="952.05" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="1000.64" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="1049.23" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb" x="1097.82" y="204.0" width="39.59" height="34.0" rx="1"/>
+      <rect class="sb un" x="1146.41" y="204.0" width="39.59" height="34.0" rx="1"/>
+    </svg>
+
+      <div class="strip-key">
+        <span><i class="i-trace"></i> model that served the turn</span>
+        <span><i class="i-un"></i> change with no recorded cause</span>
+        <span><i class="i-solid"></i> declared model to compare against</span>
+        <span><i class="i-hatch"></i> nothing declared — unverifiable</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <p class="strip-note">One real session, audited with <code>routeledger</code>: <b>11,398 turns</b> spanning five Claude Code versions. The model changed <b>nine times</b>. Seven of those changes follow a <code>/model</code> command in the transcript. <b>Two do not</b> — and both fall inside a twenty-minute stretch near the end, where the routing flips three times. The lower channel has no time axis: it is the 22 subagent runs of that session, ordered by id.</p>
+
+  <main>
+
+  <section>
+    <h2>Three answers, and one of them is<br>“I can’t tell you”</h2>
+    <p class="intro">Most checkers have two states: fine, or broken. That grammar lies the moment evidence goes missing, because “nothing wrong here” and “nothing here to check with” come out looking identical. routeledger keeps them apart.</p>
+
+    <dl class="grammar">
+      <div class="row">
+        <dt><span class="chip chip-ok"></span>ok</dt>
+        <dd>A model was declared, a model answered, and they are the same family.
+          <em>The only case where the tool is entitled to say nothing is wrong.</em></dd>
+      </div>
+      <div class="row">
+        <dt><span class="chip chip-obs"></span>observation</dt>
+        <dd>Something changed and the transcript does not record why. Reported as a hypothesis, with the reason it cannot be more than one.
+          <em>A mid-session settings edit and a resume leave no trace in the file. Absence of a cause in the record is not absence of a cause.</em></dd>
+      </div>
+      <div class="row">
+        <dt><span class="chip chip-un"></span>unverifiable</dt>
+        <dd>The evidence needed is not in the file. No verdict is issued, and none is implied.
+          <em>This is a real answer, not a failure to produce one. It appears often — nine times in the session above.</em></dd>
+      </div>
+    </dl>
+
+    <p class="quote">An auditor that is confidently wrong is worse than no auditor.</p>
+  </section>
+
+  <section>
+    <h2>What it reads</h2>
+    <p class="intro">Three checks, run against files already sitting under <code>~/.claude/projects</code>. Each one states its own limit, because a limit you have to discover later is a defect.</p>
+
+    <div class="check">
+      <div>
+        <h3>Declared model versus served model</h3>
+        <div class="limit"><b>Limit.</b> When a subagent’s <code>meta.json</code> declares no model, there is nothing to compare against — so the finding is <code>unverifiable</code>, not “fine”.</div>
+      </div>
+      <div class="check-body">
+        <pre class="out"><span class="k">[</span>UNVERIFIABLE<span class="k">]</span> agent-a90c8e85777de7dde (general-purpose)
+                <span class="d">beyan edilen model yok; fiilen:</span>
+                <span class="f">claude-fable-5</span>, <span class="f">claude-opus-4-8</span></pre>
+        <p>Every subagent run leaves a record of the model it was asked for, next to a transcript of the model that answered. routeledger joins the two. One run above was served by two different models — a fact that appears nowhere else.</p>
+      </div>
+    </div>
+
+    <div class="check">
+      <div>
+        <h3>Model changes inside a session</h3>
+        <div class="limit"><b>Limit.</b> “No user action found” is an inference, and every report of it says so on the same line.</div>
+      </div>
+      <div class="check-body">
+        <pre class="out"><span class="k">[</span>OBSERVATION <span class="k">]</span> <span class="d">aciklanmamis model degisimi</span>
+                <span class="f">claude-fable-5</span> -&gt; <span class="f">claude-opus-4-8</span> @ 2026-07-19T15:32:10Z
+                <span class="d">cikarim: kullanici eylemi bulunamadi; ancak oturum-ici
+                settings.json duzenlemesi ve resume transcript'e
+                kaydedilmez, dolayisiyla bu bir hipotezdir</span></pre>
+        <p>It walks the served model across the session and separates the changes you asked for from the changes you did not, by looking for a preceding <code>/model</code> command.</p>
+      </div>
+    </div>
+
+    <div class="check">
+      <div>
+        <h3>Plan-mode profile</h3>
+        <div class="limit"><b>Limit.</b> The configuration in force at session time is not recorded anywhere, so this is an observation and never a judgement.</div>
+      </div>
+      <div class="check-body">
+        <pre class="out"><span class="k">[</span>OK          <span class="k">]</span> <span class="d">plan modu profili</span>
+                plan: <span class="f">claude-fable-5</span> | uygulama: <span class="f">claude-opus-5</span></pre>
+        <p>Which models served plan-mode turns, and which served the rest. If they are identical and you were expecting a plan-mode upgrade, it may never have fired — <code>opusplan</code> falling back silently is an open, reported issue.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>It stops asserting on a version it has not seen</h2>
+    <p class="intro">The Claude Code transcript format is undocumented and it moves. While building this, a single transcript turned up spanning five CLI versions, and a record type present in one session was simply absent in another.</p>
+    <p class="intro">So routeledger records the version behind every session it reads. On a version newer than the last one it was verified against — or when no version was recorded at all — it withdraws. Every finding drops to <code>unverifiable</code>, the claim it would have made is kept visible in the detail line, and the models-served table is relabelled a raw, unverified count.</p>
+
+    <pre class="out" style="margin-top:var(--s6)">  ! Bu oturum routeledger'in dogrulandigi surumden (2.1.220) yeni.
+    <span class="d">Bulgular unverifiable sayilir; transcript formati degismis olabilir.</span>
+
+  MODELS SERVED <span class="d">(ham sayim — format dogrulanmadi)</span>
+    <span class="f">claude-opus-4-8</span>                 7589 turn
+    <span class="f">claude-fable-5</span>                  3809 turn</pre>
+
+    <p class="limit" style="max-width:68ch">Absence of evidence closes the fence too. If no version was recorded, routeledger does not assume it is safe — it assumes it cannot tell.</p>
+  </section>
+
+  <section>
+    <h2>What it will not do</h2>
+
+    <ul class="refuse">
+      <li><b>no network</b><span>Ever. There is nothing to configure and nothing to opt out of.</span></li>
+      <li><b>writes nothing</b><span>No files, no cache, no telemetry. Read-only by construction.</span></li>
+      <li><b>changes nothing</b><span>It cannot switch models or touch your configuration.</span></li>
+      <li><b>reports no content</b><span>Your prompts and Claude’s replies are never printed, stored, or transmitted.</span></li>
+    </ul>
+
+    <div class="exception">
+      <p>One narrow exception, stated here because “it does not read your content” would be false. To tell a model change you requested from one you did not, the second check scans user text <b>in memory</b> for the <code>/model</code> command marker.</p>
+      <p>That text never enters a finding and never leaves the process. The scanned value is passed to one regular expression and discarded.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Running it</h2>
+    <p class="intro">Node 20 or newer, and transcripts under <code>~/.claude/projects</code>. No install, no configuration, no account.</p>
+
+    <div class="usage">
+      <div>
+        <h3>routeledger</h3>
+        <p>Audits the most recent session for the current directory, falling back to the newest session anywhere — and saying which one it picked.</p>
+      </div>
+      <div>
+        <h3>routeledger &lt;session-id&gt;</h3>
+        <p>Audits a specific session. A prefix is enough.</p>
+      </div>
+      <div>
+        <h3>routeledger --sessions</h3>
+        <p>Lists recent sessions, newest first, so you can pick an id.</p>
+      </div>
+      <div>
+        <h3>routeledger --json</h3>
+        <p>The same report as machine-readable JSON, always with every finding included.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Nearby, and honestly</h2>
+
+    <div class="near">
+      <div>
+        <h3><a href="https://github.com/ccusage/ccusage">ccusage</a></h3>
+        <p>What your sessions <em>cost</em>, broken down by model. A different question, and the one most people need first.</p>
+      </div>
+      <div>
+        <h3><a href="https://github.com/tylerlaprade/fableplan">fableplan</a></h3>
+        <p>Sets up a Fable-plans, Opus-executes routing. routeledger checks whether the routing you set up is the one you got.</p>
+      </div>
+    </div>
+
+    <p class="limit" style="max-width:68ch">Findings describe one session. There is no history, no policy file, and no CI-gate mode in this version — a finding never changes the exit code.</p>
+  </section>
+
+  </main>
+
+  <footer>
+    <span>routeledger v0.2.0 · MIT · built by <a href="https://onourimpram.com">Onour Impram</a></span>
+    <nav>
+      <a href="https://github.com/OnourImpram/routeledger">GitHub</a>
+      <a href="https://www.npmjs.com/package/routeledger">npm</a>
+      <a href="https://github.com/OnourImpram/routeledger/blob/master/CHANGELOG.md">changelog</a>
+    </nav>
+  </footer>
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    navigator.clipboard.writeText(b.dataset.copy).then(function () {
+      b.textContent = 'copied';
+      b.dataset.done = '1';
+      setTimeout(function () { b.textContent = 'copy'; b.dataset.done = ''; }, 1600);
+    });
+  });
+});
+</script>
+</body>
+</html>
