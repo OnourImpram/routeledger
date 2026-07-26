@@ -38,7 +38,6 @@
 
   --graphite:    oklch(0.170 0.006 240);
   --graphite-2:  oklch(0.212 0.007 240);
-  --graphite-3:  oklch(0.258 0.008 240);
   --rule:        oklch(0.320 0.009 240);
   --rule-soft:   oklch(0.270 0.008 240);
 
@@ -48,14 +47,19 @@
 
   --filament:      oklch(0.800 0.145 68);
   --filament-dim:  oklch(0.660 0.125 68);
-  --filament-tint: oklch(0.800 0.145 68 / 0.14);
-  --channel-2:     oklch(0.790 0.090 205);
+
+  /* Instrument ink. These four are not text, so they answer to WCAG 1.4.11
+     (3:1 against the frame) rather than to 4.5:1 — measured, not assumed. */
+  --axis:       oklch(0.530 0.010 240);
+  --ins-solid:  oklch(0.610 0.010 240);
+  --hatch-ink:  oklch(0.720 0.010 240);
+  --lead:       oklch(0.560 0.048 68);
 
   --font:  'Archivo', ui-sans-serif, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
   --mono:  'Martian Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
 
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
-  --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+  --s6:32px; --s7:48px; --s8:64px; --s9:96px;
 
   --maxw:1080px;
   --pad:clamp(20px, 5vw, 48px);
@@ -64,13 +68,13 @@
   --ease:cubic-bezier(0.23, 1, 0.32, 1);
   --fast:140ms;
 
-  --z-base:0; --z-raised:10; --z-nav:100;
+  --z-base:0; --z-raised:10;
 }
 
 *,*::before,*::after{box-sizing:border-box;}
 html{-webkit-text-size-adjust:100%;}
 body{
-  margin:0;
+  margin:0;position:relative;
   background:var(--graphite);
   color:var(--trace-2);
   font-family:var(--font);
@@ -82,11 +86,12 @@ body{
   text-rendering:optimizeLegibility;
 }
 
-/* A single wash of light from the top-left, like one lamp over a console.
-   Not a gradient decoration — it establishes the room. */
+/* One lamp over the console. Absolute, not fixed: the light belongs to the
+   top of the page, not to the viewport — it should not follow you down. */
 body::before{
-  content:"";position:fixed;inset:0;pointer-events:none;z-index:var(--z-base);
-  background:radial-gradient(120ch 70ch at 12% -10%, oklch(0.34 0.012 240 / 0.55), transparent 62%);
+  content:"";position:absolute;inset:0 0 auto;height:min(1400px, 100%);
+  pointer-events:none;z-index:var(--z-base);
+  background:radial-gradient(120ch 70ch at 12% -6%, oklch(0.34 0.012 240 / 0.55), transparent 62%);
 }
 
 .wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--pad);position:relative;z-index:var(--z-raised);}
@@ -108,13 +113,17 @@ h2{
   letter-spacing:-0.022em;
   line-height:1.18;
 }
-h3{font-size:1.0625rem;font-weight:600;letter-spacing:-0.004em;line-height:1.35;}
+h3{font-size:1.1875rem;font-weight:500;letter-spacing:-0.012em;line-height:1.3;}
 p{margin:0;max-width:68ch;text-wrap:pretty;}
 a{color:var(--trace);text-decoration-color:var(--rule);text-underline-offset:3px;
   transition:color var(--fast) ease, text-decoration-color var(--fast) ease;}
-a:hover{color:var(--filament);text-decoration-color:var(--filament-dim);}
 :focus-visible{outline:2px solid var(--filament);outline-offset:3px;border-radius:1px;}
 code,kbd,samp{font-family:var(--mono);font-size:0.86em;font-weight:400;}
+
+@media (hover:hover) and (pointer:fine){
+  a:hover{color:var(--filament);text-decoration-color:var(--filament-dim);}
+  .copy:hover{color:var(--filament);}
+}
 
 /* ── masthead ───────────────────────────────────────────── */
 .top{
@@ -142,30 +151,63 @@ code,kbd,samp{font-family:var(--mono);font-size:0.86em;font-weight:400;}
   text-transform:uppercase;cursor:pointer;
   transition:color var(--fast) ease, transform 160ms ease-out;
 }
-.copy:hover{color:var(--filament);}
 .copy:active{transform:scale(0.97);}
-.copy[data-done="1"]{color:var(--filament);}
+.copy[data-state="done"]{color:var(--filament);}
+.copy[data-state="fail"]{color:var(--trace);}
 
-/* ── the recorder strip: the one signature ──────────────── */
+/* ── the recorder: the one signature ────────────────────── */
 .strip{margin-top:clamp(var(--s6), 6vw, var(--s7));}
 .strip-frame{
   border:1px solid var(--rule-soft);border-radius:var(--r);
   background:var(--graphite-2);
   padding:clamp(var(--s4), 2.5vw, var(--s6)) clamp(var(--s3), 2vw, var(--s5));
-  overflow:hidden;
 }
 .recorder{display:block;width:100%;height:auto;}
-.recorder .base{stroke:var(--rule-soft);stroke-width:1;stroke-dasharray:2 5;}
+/* Two layouts, one breakpoint, shared with .check so the page has one seam
+   rather than three. Text inside an SVG scales with the viewBox, so a
+   1200-unit chart squeezed into a 700px column renders its labels at 6px —
+   a wide chart on a narrow screen cannot be rescued by CSS font-size. */
+/* Both charts are capped near their natural scale. Uncapped, the 360-unit
+   narrow chart stretched to 560px painted its captions at 20px — larger than
+   the page's own h3 — while stranded in a 900px frame. The frame narrows with
+   it, so below the seam the strip is a centred instrument panel, not a phone
+   screenshot dropped into a desktop layout. */
+.recorder-wide{max-width:1200px;margin-inline:auto;}
+.recorder-narrow{display:none;max-width:400px;margin-inline:auto;}
+@media (max-width:999.98px){
+  .recorder-wide{display:none;}
+  .recorder-narrow{display:block;}
+  .bleed-inner{max-width:480px;}
+}
+.recorder .base{stroke:var(--axis);stroke-width:1;stroke-dasharray:2 5;}
 .recorder .lbl{
-  font-family:var(--mono);font-size:11px;font-weight:300;
+  font-family:var(--mono);font-size:15px;font-weight:300;
   fill:var(--trace-3);letter-spacing:0.02em;
 }
-.recorder .tk{stroke:var(--rule);stroke-width:1;opacity:0.85;}
-.recorder .tk.un{stroke:var(--filament-dim);stroke-width:1.25;opacity:1;}
+.recorder .cap{
+  font-family:var(--mono);font-size:14px;font-weight:400;
+  fill:var(--trace-3);letter-spacing:0.07em;
+}
+/* ties the one explained flip to its own transition, so the label is not
+   read as a second line of the panel caption */
+.recorder .tick{stroke:var(--trace-3);stroke-width:1;}
+.recorder .tm{
+  font-family:var(--mono);font-size:13px;font-weight:300;
+  fill:var(--trace-3);letter-spacing:0.01em;
+}
+.recorder .tm-un{fill:var(--filament);}
+/* After the base rules, not before: equal specificity means source order
+   decides, and placed earlier this override lost to `.recorder .cap`. */
+.recorder-narrow .lbl,.recorder-narrow .cap,.recorder-narrow .tm{font-size:13px;}
 .recorder .trace{fill:none;stroke:var(--filament);stroke-width:2;stroke-linejoin:round;stroke-linecap:square;}
-.recorder .mk{fill:var(--graphite-2);stroke:var(--filament);stroke-width:2;}
-.recorder .sb{fill:var(--trace-3);opacity:0.5;}
-.recorder .sb.un{fill:url(#hatch);opacity:1;}
+.recorder .trace-b{stroke-width:2.4;}
+/* the detail window and the two lines that carry it down to the inset */
+.recorder .win{fill:none;stroke:var(--filament-dim);stroke-width:1.25;stroke-dasharray:3 3;}
+.recorder .lead{fill:none;stroke:var(--lead);stroke-width:1;stroke-dasharray:2 6;}
+.recorder .mk{fill:var(--graphite-2);stroke:var(--filament);stroke-width:2.4;}
+.recorder .sb{fill:var(--ins-solid);}
+.recorder-wide .sb.un{fill:url(#hatch);}
+.recorder-narrow .sb.un{fill:url(#hatch-n);}
 
 .strip-key{
   display:grid;grid-template-columns:repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
@@ -174,14 +216,15 @@ code,kbd,samp{font-family:var(--mono);font-size:0.86em;font-weight:400;}
   font-family:var(--mono);font-size:0.6875rem;font-weight:300;color:var(--trace-3);letter-spacing:0.01em;
 }
 .strip-key span{display:inline-flex;align-items:center;gap:0.5rem;}
-.strip-key i{width:14px;height:10px;flex:none;display:inline-block;}
-.i-trace{background:var(--filament);height:2px !important;}
-.i-un{background:var(--filament-dim);width:2px !important;height:14px !important;}
-.i-hatch{
-  background-image:repeating-linear-gradient(45deg, var(--trace-3) 0 1.6px, transparent 1.6px 7px);
-  border:0;
+.strip-key i{width:14px;height:12px;flex:none;display:inline-block;}
+.strip-key .i-trace{background:var(--filament);height:2px;}
+.strip-key .i-mk{
+  width:12px;height:12px;border:2px solid var(--filament);border-radius:50%;background:var(--graphite-2);
 }
-.i-solid{background:var(--trace-3);opacity:0.5;}
+.strip-key .i-solid{background:var(--ins-solid);}
+.strip-key .i-hatch{
+  background-image:repeating-linear-gradient(45deg, var(--hatch-ink) 0 1.9px, transparent 1.9px 6px);
+}
 
 .strip-note{margin-top:var(--s5);font-size:0.9375rem;color:var(--trace-3);max-width:74ch;}
 .strip-note b{color:var(--trace-2);font-weight:500;}
@@ -199,22 +242,23 @@ section > *{min-width:0;}
   padding-block:var(--s5);border-bottom:1px solid var(--rule-soft);align-items:start;
 }
 .row > *{min-width:0;}
-.usage > div, .near > div{min-width:0;}
 .row dt{
   font-family:var(--mono);font-size:0.8125rem;font-weight:500;letter-spacing:-0.01em;
   color:var(--trace);display:flex;align-items:center;gap:0.65rem;
 }
 .row dd{margin:0;color:var(--trace-2);}
 .row dd em{font-style:normal;color:var(--trace-3);display:block;margin-top:var(--s2);font-size:0.9375rem;}
-.chip{width:10px;height:10px;flex:none;border-radius:1px;}
-.chip-ok{background:var(--trace-3);opacity:0.55;}
-.chip-obs{background:var(--channel-2);}
-.chip-un{background-image:repeating-linear-gradient(45deg, var(--trace-3) 0 1.6px, transparent 1.6px 7px);}
+/* Three states, three shapes, one ink. A second hue here would have to mean
+   something everywhere else on the page, and it does not. */
+.chip{width:11px;height:11px;flex:none;border-radius:1px;}
+.chip-ok{background:var(--ins-solid);}
+.chip-obs{border:1.5px solid var(--ins-solid);background:none;}
+.chip-un{background-image:repeating-linear-gradient(45deg, var(--hatch-ink) 0 1.9px, transparent 1.9px 6px);}
 
 .quote{
-  margin:var(--s6) 0 0;padding:0;border:0;
+  margin:var(--s7) 0 0;padding:0;border:0;
   font-size:clamp(1.25rem, 1rem + 1.1vw, 1.6rem);font-weight:300;
-  letter-spacing:-0.022em;line-height:1.32;color:var(--trace);max-width:24ch;
+  letter-spacing:-0.022em;line-height:1.32;color:var(--trace);max-width:34ch;
 }
 
 /* checks: alternating asymmetric rows, not three equal columns */
@@ -227,8 +271,11 @@ section > *{min-width:0;}
    which only happens once the grid item itself is allowed to be narrow. */
 .check > *{min-width:0;}
 .check:first-of-type{border-top:1px solid var(--rule-soft);margin-top:var(--s6);}
-@media (min-width:820px){
-  .check{grid-template-columns:0.85fr 1.15fr;gap:var(--s7);align-items:start;}
+/* Two columns only once the right-hand one can hold the widest real output
+   line without clipping it. Measured, not guessed: below this the sample
+   output loses its right edge, and a clipped instrument reading is a lie. */
+@media (min-width:1000px){
+  .check{grid-template-columns:0.8fr 1.2fr;gap:var(--s7);align-items:start;}
 }
 .check-body p{margin-top:var(--s3);color:var(--trace-2);}
 .limit{
@@ -245,8 +292,11 @@ section > *{min-width:0;}
 }
 .out .k{color:var(--trace-3);}
 .out .f{color:var(--filament);}
-.out .c{color:var(--channel-2);}
-.out .d{color:var(--trace-3);opacity:0.85;}
+.out .d{color:var(--trace-3);opacity:0.88;}
+.wrapnote{
+  margin-top:var(--s4);font-family:var(--mono);font-size:0.6875rem;font-weight:300;
+  color:var(--trace-3);letter-spacing:0.01em;
+}
 
 /* refusals */
 .refuse{margin:var(--s7) 0 0;padding:0;list-style:none;display:grid;gap:0;}
@@ -270,16 +320,23 @@ section > *{min-width:0;}
 /* usage */
 .usage{margin-top:var(--s7);display:grid;gap:var(--s5);}
 @media (min-width:760px){.usage{grid-template-columns:repeat(2, 1fr);gap:var(--s5) var(--s7);}}
+.usage > div{min-width:0;}
 /* Amber means one thing on this page: the model that served. It is not a
    heading colour. Four amber headings here competed with the trace and said
    nothing — removed. */
 .usage div h3{font-family:var(--mono);font-size:0.8125rem;font-weight:500;color:var(--trace);letter-spacing:-0.01em;}
 .usage div p{margin-top:var(--s2);font-size:0.9375rem;color:var(--trace-2);}
 
-.near{margin-top:var(--s6);display:grid;gap:var(--s5);}
-@media (min-width:760px){.near{grid-template-columns:repeat(2,1fr);gap:var(--s7);}}
-.near h3{font-family:var(--mono);font-size:0.8125rem;font-weight:500;letter-spacing:-0.015em;}
-.near p{margin-top:var(--s2);font-size:0.9375rem;color:var(--trace-2);}
+/* nearby: labelled rows, not a second copy of the usage grid */
+.near{margin:var(--s6) 0 0;padding:0;list-style:none;}
+.near li{
+  padding-block:var(--s4);border-bottom:1px solid var(--rule-soft);
+  display:grid;grid-template-columns:minmax(7rem, 11rem) 1fr;gap:var(--s2) var(--s5);align-items:baseline;
+}
+.near li:first-child{border-top:1px solid var(--rule-soft);}
+.near a{font-family:var(--mono);font-size:0.8125rem;font-weight:500;letter-spacing:-0.015em;text-decoration:none;
+  border-bottom:1px solid var(--rule);}
+.near p{font-size:0.9375rem;color:var(--trace-2);}
 
 footer{
   border-top:1px solid var(--rule-soft);padding-block:var(--s6) var(--s8);
@@ -288,33 +345,44 @@ footer{
   font-family:var(--mono);font-size:0.75rem;font-weight:300;color:var(--trace-3);letter-spacing:0.01em;
 }
 footer nav{display:flex;flex-wrap:wrap;gap:var(--s5);}
-footer a{text-decoration:none;}
+/* Keep each link whole — a name broken mid-word reads as a layout accident.
+   The nowrap belongs on the link, never on the line: on the line it made a
+   409px unbreakable run and pushed the whole page sideways at 390px. */
+footer a{text-decoration:none;white-space:nowrap;}
 
 /* ── motion: one orchestrated load, then stillness ──────── */
 @media (prefers-reduced-motion:no-preference){
   .recorder .trace{
     stroke-dasharray:1000;stroke-dashoffset:1000;
-    animation:draw 1150ms var(--ease) 180ms forwards;
+    animation:draw 950ms var(--ease) 140ms forwards;
   }
-  .recorder .tk,.recorder .mk,.recorder .sb,.recorder .lbl,.recorder .base{
-    opacity:0;animation:appear 420ms var(--ease) forwards;
+  .recorder .trace-b{animation-delay:420ms;}
+  .recorder .lbl,.recorder .base,.recorder .cap,.recorder .win,
+  .recorder .lead,.recorder .mk,.recorder .tm,.recorder .tick,.recorder .sb{
+    opacity:0;animation:appear 380ms var(--ease) forwards;
   }
-  .recorder .base,.recorder .lbl{animation-delay:60ms;}
-  .recorder .tk{animation-delay:900ms;}
-  .recorder .mk{animation-delay:1180ms;}
-  .recorder .sb{animation-delay:1320ms;}
+  .recorder .base,.recorder .lbl,.recorder .cap{animation-delay:60ms;}
+  .recorder .win,.recorder .lead{animation-delay:700ms;}
+  .recorder .mk,.recorder .tm,.recorder .tick{animation-delay:960ms;}
+  .recorder .sb{animation-delay:1080ms;}
   @keyframes draw{to{stroke-dashoffset:0;}}
   @keyframes appear{to{opacity:1;}}
-  .recorder .sb{animation-name:appear-sb;}
-  .recorder .sb.un{animation-name:appear-sb-un;}
-  @keyframes appear-sb{to{opacity:0.5;}}
-  @keyframes appear-sb-un{to{opacity:1;}}
+}
+
+/* Below this the column is narrower than the widest output line. Scrolling a
+   code block sideways on a phone hides the very thing being shown, so the
+   lines wrap instead — which the note under them already says out loud. */
+@media (max-width:620px){
+  /* break-word, never anywhere: `anywhere` split `claude-opus-4-8` in half and
+     severed the `->` operator at 320px — on a page whose whole claim is "this
+     model became that model", that is damage to the content, not the layout. */
+  .out{white-space:pre-wrap;overflow-wrap:break-word;}
 }
 
 @media (max-width:520px){
-  .recorder{min-height:120px;}
   .row{grid-template-columns:1fr;gap:var(--s2);}
   .refuse li{grid-template-columns:1fr;gap:var(--s1);}
+  .near li{grid-template-columns:1fr;gap:var(--s1);}
 }
 </style>
 </head>
@@ -323,7 +391,7 @@ footer a{text-decoration:none;}
 <div class="wrap">
   <header class="top">
     <span class="mark">routeledger</span>
-    <span class="meta">v0.2.0 · MIT · <a href="https://www.npmjs.com/package/routeledger">npm</a> · <a href="https://github.com/OnourImpram/routeledger">source</a></span>
+    <span class="meta">v0.3.0 · MIT · <a href="https://www.npmjs.com/package/routeledger">npm</a> · <a href="https://github.com/OnourImpram/routeledger">source</a></span>
   </header>
 
   <div class="hero">
@@ -340,58 +408,107 @@ footer a{text-decoration:none;}
 <div class="bleed">
   <div class="bleed-inner strip">
     <div class="strip-frame">
-      <svg class="recorder" viewBox="0 0 1200 258" role="img" aria-labelledby="rec-t rec-d">
-      <title id="rec-t">Model routing trace of one real Claude Code session</title>
-      <desc id="rec-d">Upper channel: the model that served each of 11,398 turns, stepping between Fable 5 and Opus 4.8 across nine changes. Two changes, close together near the end of the session, have no recorded cause. Lower channel: 22 subagent runs with no time axis, 13 solid because a declared model existed to compare against, 9 hatched because no declaration was recorded.</desc>
-      <defs>
-        <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="7" stroke="var(--trace-3)" stroke-width="1.7"/>
-        </pattern>
-      </defs>
-      <line class="base" x1="126.0" y1="44.0" x2="1186.0" y2="44.0"/>
-      <line class="base" x1="126.0" y1="132.0" x2="1186.0" y2="132.0"/>
-      <text class="lbl" x="112" y="48.0" text-anchor="end">fable 5</text>
-      <text class="lbl" x="112" y="136.0" text-anchor="end">opus 4.8</text>
-      <text class="lbl" x="112" y="225.0" text-anchor="end">subagents</text>
-      <line class="tk" x1="136.69" y1="34" x2="136.69" y2="142"/>
-      <line class="tk" x1="153.99" y1="34" x2="153.99" y2="142"/>
-      <line class="tk" x1="559.93" y1="34" x2="559.93" y2="142"/>
-      <line class="tk" x1="582.34" y1="34" x2="582.34" y2="142"/>
-      <line class="tk" x1="856.97" y1="34" x2="856.97" y2="142"/>
-      <line class="tk un" x1="1028.37" y1="34" x2="1028.37" y2="142"/>
-      <line class="tk" x1="1030.23" y1="34" x2="1030.23" y2="142"/>
-      <line class="tk un" x1="1032.83" y1="34" x2="1032.83" y2="142"/>
-      <line class="tk" x1="1045.48" y1="34" x2="1045.48" y2="142"/>
-      <path class="trace" d="M 126.0 132.0 L 136.69 132.0 L 136.69 44.0 L 153.99 44.0 L 153.99 132.0 L 559.93 132.0 L 559.93 44.0 L 582.34 44.0 L 582.34 132.0 L 856.97 132.0 L 856.97 44.0 L 1028.37 44.0 L 1028.37 132.0 L 1030.23 132.0 L 1030.23 44.0 L 1032.83 44.0 L 1032.83 132.0 L 1045.48 132.0 L 1045.48 44.0 L 1186.0 44.0" pathLength="1000"/>
-      <circle class="mk" cx="1028.37" cy="132.0" r="5.5"/>
-      <circle class="mk" cx="1032.83" cy="132.0" r="5.5"/>
-      <rect class="sb un" x="126.0" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="174.59" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="223.18" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="271.77" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="320.36" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="368.95" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="417.55" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="466.14" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="514.73" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="563.32" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="611.91" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="660.5" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="709.09" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="757.68" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="806.27" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="854.86" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="903.45" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="952.05" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="1000.64" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="1049.23" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb" x="1097.82" y="204.0" width="39.59" height="34.0" rx="1"/>
-      <rect class="sb un" x="1146.41" y="204.0" width="39.59" height="34.0" rx="1"/>
-    </svg>
+      <svg class="recorder recorder-wide" viewBox="0 0 1200 448" role="img" aria-labelledby="rw-t rw-d">
+      <title id="rw-t">Model routing trace of one real Claude Code session</title>
+      <desc id="rw-d">Top channel: the model that served each of 11,398 turns across sixteen days, stepping between Fable 5 and Opus 4.8 nine times. A dashed box marks a twenty-minute window near the end, and two lines fan out from it down to the middle channel, which is that same window magnified. There the routing flips three times — at 15:32 and at 15:52 with no recorded cause, and at 15:50 following a /model command. Bottom channel: the 22 subagent runs of the same session, ordered by id, with no time axis; thirteen are solid because a declared model existed to compare against, nine are hatched because nothing was declared.</desc>
+      <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatch-ink)" stroke-width="1.9"/></pattern></defs>
+      <text class="cap" x="132" y="28">SESSION — 11,398 turns, 10–26 Jul 2026</text>
+      <line class="base" x1="132" y1="62" x2="1180" y2="62"/>
+      <line class="base" x1="132" y1="128" x2="1180" y2="128"/>
+      <text class="lbl" x="118" y="67" text-anchor="end">fable 5</text>
+      <text class="lbl" x="118" y="133" text-anchor="end">opus 4.8</text>
+      <path class="trace" d="M 132 128 L 142.6 128 L 142.6 62 L 159.7 62 L 159.7 128 L 561.1 128 L 561.1 62 L 583.2 62 L 583.2 128 L 854.8 128 L 854.8 62 L 1024.2 62 L 1024.2 128 L 1026.1 128 L 1026.1 62 L 1028.6 62 L 1028.6 128 L 1041.1 128 L 1041.1 62 L 1180 62" pathLength="1000"/>
+      <rect class="win" x="1014.3" y="46" width="24.7" height="98" rx="1"/>
+      <path class="lead" d="M 1014.3 146 L 1014.3 196 L 132 214"/>
+      <path class="lead" d="M 1039 146 L 1039 196 L 1180 214"/>
+      <text class="cap" x="172" y="180">DETAIL — the boxed window, magnified: 19 Jul, 15:32 to 15:52</text>
+      <line class="base" x1="132" y1="252" x2="1180" y2="252"/>
+      <line class="base" x1="132" y1="318" x2="1180" y2="318"/>
+      <text class="lbl" x="118" y="257" text-anchor="end">fable 5</text>
+      <text class="lbl" x="118" y="323" text-anchor="end">opus 4.8</text>
+      <path class="trace trace-b" d="M 132 252 L 485.7 252 L 485.7 318 L 616.7 318 L 616.7 252 L 800.1 252 L 800.1 318 L 1180 318" pathLength="1000"/>
+      <circle class="mk" cx="485.7" cy="318" r="7"/>
+      <text class="tm tm-un" x="485.7" y="350" text-anchor="middle">15:32 no recorded cause</text>
+      <text class="tm" x="616.7" y="236" text-anchor="middle">15:50 after /model</text>
+      <path class="tick" d="M 616.7 242 L 616.7 250"/>
+      <circle class="mk" cx="800.1" cy="318" r="7"/>
+      <text class="tm tm-un" x="800.1" y="350" text-anchor="middle">15:52 no recorded cause</text>
+      <text class="cap" x="132" y="384">SUBAGENTS — 22 runs, no time axis</text>
+      <rect class="sb un" x="132" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="180" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="228.1" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="276.1" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="324.2" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="372.2" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="420.3" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="468.3" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="516.4" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="564.4" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="612.5" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="660.5" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="708.5" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="756.6" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="804.6" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="852.7" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="900.7" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="948.8" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="996.8" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="1044.9" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb" x="1092.9" y="402" width="39" height="30" rx="1"/>
+      <rect class="sb un" x="1141" y="402" width="39" height="30" rx="1"/>
+      </svg>
+
+      <svg class="recorder recorder-narrow" viewBox="0 0 360 412" role="img" aria-labelledby="rn-t rn-d">
+      <title id="rn-t">Model routing trace of one real Claude Code session</title>
+      <desc id="rn-d">The same trace as the wide chart, laid out for a narrow screen. In both channels the upper line is Fable 5 and the lower line is Opus 4.8: 11,398 turns stepping between them nine times, then the boxed twenty-minute window on 19 July shown magnified, holding three of those flips, two of which have no recorded cause. Below them, 22 subagent runs of which nine had no declared model.</desc>
+      <defs><pattern id="hatch-n" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="var(--hatch-ink)" stroke-width="1.7"/></pattern></defs>
+      <text class="cap" x="12" y="16">SESSION — 11,398 turns</text>
+      <text class="tm" x="12" y="38">upper: fable 5 · lower: opus 4.8</text>
+      <line class="base" x1="12" y1="62" x2="348" y2="62"/>
+      <line class="base" x1="12" y1="110" x2="348" y2="110"/>
+      <path class="trace" d="M 12 110 L 15.4 110 L 15.4 62 L 20.9 62 L 20.9 110 L 149.6 110 L 149.6 62 L 156.7 62 L 156.7 110 L 243.7 110 L 243.7 62 L 298.1 62 L 298.1 110 L 298.6 110 L 298.6 62 L 299.5 62 L 299.5 110 L 303.5 110 L 303.5 62 L 348 62" pathLength="1000"/>
+      <rect class="win" x="292.5" y="50" width="12.7" height="72" rx="1"/>
+      <text class="cap" x="32" y="150">DETAIL — magnified</text>
+      <path class="lead" d="M 292.5 124 L 292.5 160 L 12 176"/>
+      <path class="lead" d="M 305.2 124 L 305.2 160 L 348 176"/>
+      <line class="base" x1="12" y1="212" x2="348" y2="212"/>
+      <line class="base" x1="12" y1="260" x2="348" y2="260"/>
+      <path class="trace trace-b" d="M 12 212 L 125.4 212 L 125.4 260 L 167.4 260 L 167.4 212 L 226.2 212 L 226.2 260 L 348 260" pathLength="1000"/>
+      <circle class="mk" cx="125.4" cy="260" r="6"/>
+      <text class="tm tm-un" x="125.4" y="284" text-anchor="middle">15:32</text>
+      <text class="tm" x="167.4" y="198" text-anchor="middle">15:50</text>
+      <path class="tick" d="M 167.4 203 L 167.4 210"/>
+      <circle class="mk" cx="226.2" cy="260" r="6"/>
+      <text class="tm tm-un" x="226.2" y="284" text-anchor="middle">15:52</text>
+      <text class="tm" x="12" y="306">two of the three: no cause</text>
+      <text class="cap" x="12" y="332">SUBAGENTS — 22 runs</text>
+      <rect class="sb un" x="12" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="43.1" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="74.2" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="105.3" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="136.4" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="167.5" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="198.5" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="229.6" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="260.7" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="291.8" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="322.9" y="346" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="12" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="43.1" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="74.2" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="105.3" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="136.4" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="167.5" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="198.5" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="229.6" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="260.7" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb" x="291.8" y="376" width="25.1" height="24" rx="1"/>
+      <rect class="sb un" x="322.9" y="376" width="25.1" height="24" rx="1"/>
+      </svg>
 
       <div class="strip-key">
         <span><i class="i-trace"></i> model that served the turn</span>
-        <span><i class="i-un"></i> change with no recorded cause</span>
+        <span><i class="i-mk"></i> change with no recorded cause</span>
         <span><i class="i-solid"></i> declared model to compare against</span>
         <span><i class="i-hatch"></i> nothing declared — unverifiable</span>
       </div>
@@ -400,7 +517,7 @@ footer a{text-decoration:none;}
 </div>
 
 <div class="wrap">
-  <p class="strip-note">One real session, audited with <code>routeledger</code>: <b>11,398 turns</b> spanning five Claude Code versions. The model changed <b>nine times</b>. Seven of those changes follow a <code>/model</code> command in the transcript. <b>Two do not</b> — and both fall inside a twenty-minute stretch near the end, where the routing flips three times. The lower channel has no time axis: it is the 22 subagent runs of that session, ordered by id.</p>
+  <p class="strip-note">One real session, audited with <code>routeledger</code>: <b>11,398 turns</b> over sixteen days, spanning five Claude Code versions. The model changed <b>nine times</b>. Seven of those changes follow a <code>/model</code> command in the transcript. <b>Two do not</b>, and both sit inside the same twenty minutes, where the routing flips three times — which is why that window is drawn again, magnified. The bottom channel has no time axis: it is the 22 subagent runs of that session, ordered by id.</p>
 
   <main>
 
@@ -439,10 +556,10 @@ footer a{text-decoration:none;}
         <div class="limit"><b>Limit.</b> When a subagent’s <code>meta.json</code> declares no model, there is nothing to compare against — so the finding is <code>unverifiable</code>, not “fine”.</div>
       </div>
       <div class="check-body">
-        <pre class="out"><span class="k">[</span>UNVERIFIABLE<span class="k">]</span> agent-a90c8e85777de7dde (general-purpose)
-                <span class="d">beyan edilen model yok; fiilen:</span>
+        <pre class="out" tabindex="0" role="region" aria-label="Example output: a subagent finding"><span class="k">[</span>UNVERIFIABLE<span class="k">]</span> agent-a90c8e85777de7dde (general-purpose)
+                <span class="d">no declared model; served:</span>
                 <span class="f">claude-fable-5</span>, <span class="f">claude-opus-4-8</span></pre>
-        <p>Every subagent run leaves a record of the model it was asked for, next to a transcript of the model that answered. routeledger joins the two. One run above was served by two different models — a fact that appears nowhere else.</p>
+        <p>Every subagent run leaves a record of the model it was asked for, next to a transcript of the model that answered. routeledger joins the two. That one run was served by two different models — a fact that appears nowhere else.</p>
       </div>
     </div>
 
@@ -452,11 +569,13 @@ footer a{text-decoration:none;}
         <div class="limit"><b>Limit.</b> “No user action found” is an inference, and every report of it says so on the same line.</div>
       </div>
       <div class="check-body">
-        <pre class="out"><span class="k">[</span>OBSERVATION <span class="k">]</span> <span class="d">aciklanmamis model degisimi</span>
-                <span class="f">claude-fable-5</span> -&gt; <span class="f">claude-opus-4-8</span> @ 2026-07-19T15:32:10Z
-                <span class="d">cikarim: kullanici eylemi bulunamadi; ancak oturum-ici
-                settings.json duzenlemesi ve resume transcript'e
-                kaydedilmez, dolayisiyla bu bir hipotezdir</span></pre>
+        <pre class="out" tabindex="0" role="region" aria-label="Example output: an unexplained model change"><span class="k">[</span>OBSERVATION <span class="k">]</span> unexplained model change
+                <span class="f">claude-fable-5</span> -&gt; <span class="f">claude-opus-4-8</span>
+                @ 2026-07-19T15:32:10.329Z
+                <span class="d">inference: no user action found; but a
+                mid-session settings.json edit and a
+                resume are not recorded in the
+                transcript, so this is a hypothesis</span></pre>
         <p>It walks the served model across the session and separates the changes you asked for from the changes you did not, by looking for a preceding <code>/model</code> command.</p>
       </div>
     </div>
@@ -467,11 +586,18 @@ footer a{text-decoration:none;}
         <div class="limit"><b>Limit.</b> The configuration in force at session time is not recorded anywhere, so this is an observation and never a judgement.</div>
       </div>
       <div class="check-body">
-        <pre class="out"><span class="k">[</span>OK          <span class="k">]</span> <span class="d">plan modu profili</span>
-                plan: <span class="f">claude-fable-5</span> | uygulama: <span class="f">claude-opus-5</span></pre>
-        <p>Which models served plan-mode turns, and which served the rest. If they are identical and you were expecting a plan-mode upgrade, it may never have fired — <code>opusplan</code> falling back silently is an open, reported issue.</p>
+        <pre class="out" tabindex="0" role="region" aria-label="Example output: the plan-mode profile"><span class="k">[</span>OBSERVATION <span class="k">]</span> plan-mode profile
+                plan: <span class="f">claude-fable-5</span> | execution:
+                <span class="f">claude-fable-5</span>, <span class="f">claude-opus-4-8</span>
+                <span class="d">inference: <span class="f">claude-fable-5</span> served turns
+                on both sides of the plan-mode
+                boundary; if you expected a plan-mode
+                upgrade, it may never have fired. […]</span></pre>
+        <p>Which models served plan-mode turns, and which served the rest. The two sets are not identical here, but they overlap — Fable 5 answered on both sides, so the plan-mode boundary did not separate the models at all. A checker comparing the sets for equality would call that fine. This one does not.</p>
       </div>
     </div>
+
+    <p class="wrapnote">Output above is verbatim, from the session drawn at the top of this page. Long lines are wrapped to fit the column, and one trailing sentence is elided at […]; nothing else is changed.</p>
   </section>
 
   <section>
@@ -479,12 +605,21 @@ footer a{text-decoration:none;}
     <p class="intro">The Claude Code transcript format is undocumented and it moves. While building this, a single transcript turned up spanning five CLI versions, and a record type present in one session was simply absent in another.</p>
     <p class="intro">So routeledger records the version behind every session it reads. On a version newer than the last one it was verified against — or when no version was recorded at all — it withdraws. Every finding drops to <code>unverifiable</code>, the claim it would have made is kept visible in the detail line, and the models-served table is relabelled a raw, unverified count.</p>
 
-    <pre class="out" style="margin-top:var(--s6)">  ! Bu oturum routeledger'in dogrulandigi surumden (2.1.220) yeni.
-    <span class="d">Bulgular unverifiable sayilir; transcript formati degismis olabilir.</span>
+    <pre class="out" tabindex="0" role="region" aria-label="Example output: the version fence closing" style="margin-top:var(--s6)">  ! This session is newer than the version routeledger
+    was verified on (2.1.220).
+    <span class="d">Findings are treated as unverifiable; the format
+    may have changed.</span>
 
-  MODELS SERVED <span class="d">(ham sayim — format dogrulanmadi)</span>
-    <span class="f">claude-opus-4-8</span>                 7589 turn
-    <span class="f">claude-fable-5</span>                  3809 turn</pre>
+  MODELS SERVED <span class="d">(raw count — format unverified)</span>
+    <span class="f">claude-opus-5</span>                     1 turn
+    <span class="f">claude-fable-5</span>                    1 turn
+
+  FINDINGS
+    <span class="k">[</span>UNVERIFIABLE<span class="k">]</span> unexplained model change
+                    <span class="f">claude-opus-5</span> -&gt; <span class="f">claude-fable-5</span>
+                    <span class="d">(version fence: unverified version,
+                    no "observation" claim made)</span></pre>
+    <p class="wrapnote">Real output, from the test fixture that holds this path open: a transcript recording Claude Code 9.9.9. The withdrawn word stays in the report, so you can see exactly which claim was not made.</p>
 
     <p class="limit" style="max-width:68ch">Absence of evidence closes the fence too. If no version was recorded, routeledger does not assume it is safe — it assumes it cannot tell.</p>
   </section>
@@ -532,16 +667,16 @@ footer a{text-decoration:none;}
   <section>
     <h2>Nearby, and honestly</h2>
 
-    <div class="near">
-      <div>
-        <h3><a href="https://github.com/ccusage/ccusage">ccusage</a></h3>
+    <ul class="near">
+      <li>
+        <a href="https://github.com/ccusage/ccusage">ccusage</a>
         <p>What your sessions <em>cost</em>, broken down by model. A different question, and the one most people need first.</p>
-      </div>
-      <div>
-        <h3><a href="https://github.com/tylerlaprade/fableplan">fableplan</a></h3>
+      </li>
+      <li>
+        <a href="https://github.com/tylerlaprade/fableplan">fableplan</a>
         <p>Sets up a Fable-plans, Opus-executes routing. routeledger checks whether the routing you set up is the one you got.</p>
-      </div>
-    </div>
+      </li>
+    </ul>
 
     <p class="limit" style="max-width:68ch">Findings describe one session. There is no history, no policy file, and no CI-gate mode in this version — a finding never changes the exit code.</p>
   </section>
@@ -549,7 +684,7 @@ footer a{text-decoration:none;}
   </main>
 
   <footer>
-    <span>routeledger v0.2.0 · MIT · built by <a href="https://onourimpram.com">Onour Impram</a></span>
+    <span class="by">routeledger v0.3.0 · MIT · built by <a href="https://onourimpram.com">Onour Impram</a></span>
     <nav>
       <a href="https://github.com/OnourImpram/routeledger">GitHub</a>
       <a href="https://www.npmjs.com/package/routeledger">npm</a>
@@ -560,12 +695,21 @@ footer a{text-decoration:none;}
 
 <script>
 document.querySelectorAll('.copy').forEach(function (b) {
+  var reset;
   b.addEventListener('click', function () {
-    navigator.clipboard.writeText(b.dataset.copy).then(function () {
-      b.textContent = 'copied';
-      b.dataset.done = '1';
-      setTimeout(function () { b.textContent = 'copy'; b.dataset.done = ''; }, 1600);
-    });
+    clearTimeout(reset);
+    var back = function () { b.textContent = 'copy'; b.dataset.state = ''; };
+    var say = function (word, state) {
+      b.textContent = word;
+      b.dataset.state = state;
+      reset = setTimeout(back, 2200);
+    };
+    // A denied clipboard permission must not look like a click that did nothing.
+    if (!navigator.clipboard) { say('select it', 'fail'); return; }
+    navigator.clipboard.writeText(b.dataset.copy).then(
+      function () { say('copied', 'done'); },
+      function () { say('select it', 'fail'); }
+    );
   });
 });
 </script>
