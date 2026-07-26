@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user","content":"merhaba"}}
+{"type":"assistant","message":{"role":"assistant","model":"claude-opus-5"}}
+{bu satir bozuk
+{"type":"assistant","message":{"role":"assistant","model":"claude-fable-5"}}
