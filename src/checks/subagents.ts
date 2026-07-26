@@ -34,12 +34,29 @@ export async function checkSubagents(subagentDir: string): Promise<Finding[]> {
     if (!name.endsWith(".meta.json")) continue;
     const agentId = name.slice(0, -".meta.json".length);
     const jsonlPath = join(subagentDir, `${agentId}.jsonl`);
-    if (!existsSync(jsonlPath)) continue;
 
     let meta: Meta;
     try {
       meta = JSON.parse(readFileSync(join(subagentDir, name), "utf8")) as Meta;
     } catch {
+      // Sessiz atlama yasak: okunamayan beyan da bir bulgudur.
+      findings.push({
+        check: "subagent-model",
+        status: "unverifiable",
+        title: `${agentId} (bilinmeyen tur)`,
+        detail: "meta.json okunamadi ya da gecersiz JSON; beyan edilen model bilinmiyor",
+      });
+      continue;
+    }
+
+    if (!existsSync(jsonlPath)) {
+      // Beyan var ama transcript yok: bu da sessizce gecilmez.
+      findings.push({
+        check: "subagent-model",
+        status: "unverifiable",
+        title: `${agentId} (${meta.agentType ?? "unknown"})`,
+        detail: "meta.json var ama ajanin transcript'i yok; fiilen kosan model bilinmiyor",
+      });
       continue;
     }
 

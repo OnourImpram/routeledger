@@ -1,6 +1,6 @@
 {
   "name": "routeledger",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Which model actually served each turn in your Claude Code session, and where routing silently diverged.",
   "type": "module",
   "bin": { "routeledger": "dist/cli.js" },

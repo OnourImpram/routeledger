@@ -1,5 +1,8 @@
 # routeledger
 
+[![ci](https://github.com/OnourImpram/routeledger/actions/workflows/ci.yml/badge.svg)](https://github.com/OnourImpram/routeledger/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/routeledger)](https://www.npmjs.com/package/routeledger)
+
 **Which model actually served each turn of your Claude Code session — and where the routing quietly diverged from what you configured.**
 
 Claude Code picks the model for a turn from a stack of inputs: the `model` setting, the plan-mode boundary, `ANTHROPIC_DEFAULT_*` alias overrides, subagent frontmatter, `CLAUDE_CODE_SUBAGENT_MODEL`, allowlist substitutions, fallback chains, and automatic safety fallback. Most of them can change what you get **without raising an error**. You keep working; the answers keep coming; the model is not the one you configured.
@@ -41,7 +44,9 @@ Two things in that report are invisible everywhere else: a model change nobody a
 ```
 routeledger               audit the most recent session
 routeledger <session-id>  audit a specific session (a prefix is enough)
+routeledger --sessions    list recent sessions, newest first, to pick an id from
 routeledger --all         list matching findings individually instead of summarising them
+routeledger --json        print the report as JSON (always includes every finding)
 ```
 
 Requires Node 20+ and Claude Code transcripts under `~/.claude/projects`.
@@ -65,13 +70,13 @@ Requires Node 20+ and Claude Code transcripts under `~/.claude/projects`.
 
 The Claude Code transcript format is undocumented and it moves. During development a single transcript was found spanning five CLI versions, and a record type present in one session was absent in another.
 
-routeledger records the Claude Code version behind every session it reads. On a version newer than the last one it was verified against, it refuses to assert and degrades to `unverifiable`, with a notice. An auditor that is confidently wrong is worse than no auditor.
+routeledger records the Claude Code version behind every session it reads. On a version newer than the last one it was verified against — or when no version was recorded at all — it refuses to assert: every finding degrades to `unverifiable` (the withdrawn claim is kept in the detail line), and the models-served table is labeled as a raw, unverified count. An auditor that is confidently wrong is worse than no auditor.
 
 ## Honest limits
 
 - The environment a session ran with — `ANTHROPIC_DEFAULT_OPUS_MODEL` and friends — is **not recorded as structured data anywhere in the transcript**. routeledger therefore cannot prove that an alias remap was intended, or that one silently went missing on resume. It will not guess. (Those variable names can turn up inside a transcript as ordinary conversation text, because someone discussed them. That is not a record of the environment, and routeledger does not read it as one.)
 - `unverifiable` is a real answer here and appears often. It means the evidence needed is absent, not that everything is fine.
-- Findings describe one session. There is no history, no policy file, and no CI gate in this version.
+- Findings describe one session. There is no history, no policy file, and no CI-gate mode in this version — findings never change the exit code. (The badge above is this repo's own test suite, not a gating feature.)
 
 ## Related work
 
