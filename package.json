@@ -1,0 +1,21 @@
+{
+  "name": "routeledger",
+  "version": "0.1.0",
+  "description": "Which model actually served each turn in your Claude Code session, and where routing silently diverged.",
+  "type": "module",
+  "bin": { "routeledger": "dist/cli.js" },
+  "files": ["dist"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": ["claude-code", "model-routing", "audit", "opusplan", "fable"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
