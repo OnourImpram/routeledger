@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: routeledger
+abstract: >-
+  Reads a Claude Code session transcript and reports which model actually
+  served each turn, and where routing quietly diverged from the model that
+  was configured. Read-only, offline, and it writes nothing.
+type: software
+authors:
+  - family-names: Impram
+    given-names: Onour
+repository-code: "https://github.com/OnourImpram/routeledger"
+url: "https://github.com/OnourImpram/routeledger"
+license: MIT
+version: 0.3.0
+date-released: "2026-07-27"
+keywords:
+  - claude-code
+  - model-routing
+  - audit
+  - observability
+  - transcript
+  - cli
+  - typescript
