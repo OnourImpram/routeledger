@@ -12,7 +12,7 @@ authors:
 repository-code: "https://github.com/OnourImpram/routeledger"
 url: "https://github.com/OnourImpram/routeledger"
 license: MIT
-version: 0.3.0
+version: 0.3.1
 date-released: "2026-07-27"
 keywords:
   - claude-code

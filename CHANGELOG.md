@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 - 2026-07-27
+
+- The repository now carries a `CITATION.cff`, so GitHub renders a "Cite this
+  repository" entry and the software archive has metadata to mint a DOI from.
+- The README opens with a banner that shows a real finding before the prose.
+
+No behaviour change. Nothing in the checks, the output or the CLI moved. This
+release exists so the archived record has a version to point at.
+
 ## 0.3.0 — 2026-07-27
 
 - **The output is in English.** Every finding, warning, label and help line
