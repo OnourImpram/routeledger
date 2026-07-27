@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/OnourImpram/routeledger/master/assets/routeledger-banner.png" width="100%" alt="routeledger: which model actually served each turn of your session. A trace of twenty minutes of one real session, 19 July 15:32 to 15:52, shows the routing stepping between Fable 5 and Opus 4.8 three times, two of them marked as having no recorded cause, above a row of 22 subagent runs of which 9 declared no model at all.">
+</p>
+
 # routeledger
 
 [![ci](https://github.com/OnourImpram/routeledger/actions/workflows/ci.yml/badge.svg)](https://github.com/OnourImpram/routeledger/actions/workflows/ci.yml)
