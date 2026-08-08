@@ -1,0 +1,50 @@
+name: Temporary DogPulse production translations
+
+on:
+  push:
+    branches:
+      - tmp-dogpulse-i18n-20260808
+    paths:
+      - 'tmp-dogpulse-i18n/**'
+      - '.github/workflows/tmp-dogpulse-i18n.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tmp-dogpulse-i18n-20260808
+  cancel-in-progress: true
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Translate complete DogPulse catalogues
+        run: python3 tmp-dogpulse-i18n/translate.py
+      - name: Validate output structure
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('tmp-dogpulse-i18n/out')
+          languages = ['de','fr','it','es','pt-BR','nl','pl','ro','el','ru','uk','ar','hi','id','zh-Hans','ja','ko']
+          ui_en = json.loads(Path('tmp-dogpulse-i18n/work/ui-en.json').read_text(encoding='utf-8'))
+          content_en = json.loads(Path('tmp-dogpulse-i18n/work/content-en.json').read_text(encoding='utf-8'))
+          for language in languages:
+              ui = json.loads((root/'ui'/f'{language}.json').read_text(encoding='utf-8'))
+              content = json.loads((root/'content'/f'{language}.json').read_text(encoding='utf-8'))
+              assert list(ui) == list(ui_en), language
+              assert list(content) == list(content_en), language
+              assert all(isinstance(v, str) and v.strip() for v in ui.values()), language
+              assert all(isinstance(v, str) and v.strip() for v in content.values()), language
+          print('Validated', len(languages), 'complete locale outputs')
+          PY
+      - name: Upload translated locale catalogue
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogpulse-i18n-output
+          path: tmp-dogpulse-i18n/dogpulse-i18n-output.zip
+          if-no-files-found: error
+          retention-days: 1
