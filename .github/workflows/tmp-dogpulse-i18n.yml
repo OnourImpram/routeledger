@@ -7,12 +7,18 @@ on:
     paths:
       - 'tmp-dogpulse-i18n/**'
       - '.github/workflows/tmp-dogpulse-i18n.yml'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'tmp-dogpulse-i18n/**'
+      - '.github/workflows/tmp-dogpulse-i18n.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: tmp-dogpulse-i18n-20260808
+  group: tmp-dogpulse-i18n-20260808-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
