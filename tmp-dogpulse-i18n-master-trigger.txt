@@ -1,0 +1,2 @@
+DogPulse 3.1.0 translation collector trigger
+source-sha256=84bd2b5ce202f1fef5ec4de6f6a8ead70f33ca97a9777ff02aa46aa66a1b4b69
