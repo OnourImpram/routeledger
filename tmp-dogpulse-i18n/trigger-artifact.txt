@@ -1,0 +1,1 @@
+Temporary DogPulse translation transfer trigger. This branch and file will be deleted after the artifact is materialized.
