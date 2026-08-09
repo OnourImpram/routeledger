@@ -1,16 +1,14 @@
 name: Temporary DogPulse translation collector
 
 on:
-  pull_request:
+  push:
     branches:
       - master
     paths:
-      - tmp-dogpulse-i18n/collect-trigger.txt
-      - tmp-dogpulse-i18n/collect.py
-      - .github/workflows/tmp-dogpulse-i18n-collect.yml
+      - tmp-dogpulse-i18n-master-trigger.txt
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   collect:
@@ -18,15 +16,40 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: tmp-dogpulse-i18n-20260808
+          fetch-depth: 0
       - name: Collect and validate all 17 generated locale packs
         run: python3 tmp-dogpulse-i18n/collect.py
-      - name: Upload verified locale artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dogpulse-v3.1.0-translations
-          path: |
-            DogPulse-v3.1.0-translations.zip
-            collector-output/translations/manifest.json
-            collector-output/translations/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 1
+      - name: Prepare transport chunks
+        run: |
+          rm -rf tmp-dogpulse-i18n/collected
+          mkdir -p tmp-dogpulse-i18n/collected/chunks
+          base64 -w 0 DogPulse-v3.1.0-translations.zip > tmp-dogpulse-i18n/collected/archive.b64
+          split -b 40000 -d -a 3 tmp-dogpulse-i18n/collected/archive.b64 tmp-dogpulse-i18n/collected/chunks/chunk-
+          cp collector-output/translations/manifest.json tmp-dogpulse-i18n/collected/manifest.json
+          cp collector-output/translations/SHA256SUMS.txt tmp-dogpulse-i18n/collected/SHA256SUMS.txt
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path('tmp-dogpulse-i18n/collected')
+          archive=Path('DogPulse-v3.1.0-translations.zip')
+          chunks=sorted((root/'chunks').glob('chunk-*'))
+          meta={
+              'archive':'DogPulse-v3.1.0-translations.zip',
+              'archiveBytes':archive.stat().st_size,
+              'archiveSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'base64Length':(root/'archive.b64').stat().st_size,
+              'chunks':[{'name':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in chunks],
+          }
+          (root/'transport.json').write_text(json.dumps(meta,indent=2)+'\n')
+          (root/'READY').write_text(meta['archiveSha256']+'\n')
+          (root/'archive.b64').unlink()
+          PY
+      - name: Commit temporary verified transport
+        run: |
+          git config user.name 'DogPulse i18n build'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tmp-dogpulse-i18n/collected
+          git commit -m 'chore: collect verified DogPulse 3.1 locale artifact'
+          git push origin HEAD:tmp-dogpulse-i18n-20260808
