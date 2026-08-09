@@ -1,0 +1,35 @@
+name: Temporary DogPulse translation artifact transfer
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/tmp-dogpulse-i18n-artifact.yml
+      - tmp-dogpulse-i18n/trigger-artifact.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download verified translation archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://tnyzqxvygoaatldwckwr.supabase.co/storage/v1/object/public/tmp-dogpulse-i18n-20260809/DogPulse-v3.1.0-translations.zip' \
+            --output DogPulse-v3.1.0-translations.zip
+          echo 'f85291514835c1d8e1671a7ab16a2ae2f7f198629ee2d166fa39145973563716  DogPulse-v3.1.0-translations.zip' | sha256sum --check --strict
+          unzip -t DogPulse-v3.1.0-translations.zip
+      - name: Upload translation archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: DogPulse-v3.1.0-translations
+          path: DogPulse-v3.1.0-translations.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
