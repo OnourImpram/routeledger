@@ -1,1 +1,1 @@
-Temporary DogPulse translation transfer trigger, synchronized after the pull request workflow was enabled. This branch and file will be deleted after the artifact is materialized.
+Temporary DogPulse translation transfer trigger, synchronized after current archive validation was enabled. This branch and file will be deleted after the artifact is materialized.
