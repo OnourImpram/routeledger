@@ -1,0 +1,1 @@
+Trigger the temporary DogPulse localization workflow after the complete 19-language artifact was generated. Delete with the temporary branch.
