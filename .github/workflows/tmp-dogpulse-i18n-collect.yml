@@ -1,0 +1,32 @@
+name: Temporary DogPulse translation collector
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - tmp-dogpulse-i18n/collect-trigger.txt
+      - tmp-dogpulse-i18n/collect.py
+      - .github/workflows/tmp-dogpulse-i18n-collect.yml
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect and validate all 17 generated locale packs
+        run: python3 tmp-dogpulse-i18n/collect.py
+      - name: Upload verified locale artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogpulse-v3.1.0-translations
+          path: |
+            DogPulse-v3.1.0-translations.zip
+            collector-output/translations/manifest.json
+            collector-output/translations/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1
