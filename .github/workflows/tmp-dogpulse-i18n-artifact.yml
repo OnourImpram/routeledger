@@ -20,20 +20,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Download verified translation archive
+      - name: Download and validate translation archive
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --location --retry 5 --retry-all-errors \
             'https://tnyzqxvygoaatldwckwr.supabase.co/storage/v1/object/public/tmp-dogpulse-i18n-20260809/DogPulse-v3.1.0-translations.zip' \
             --output DogPulse-v3.1.0-translations.zip
-          echo 'f85291514835c1d8e1671a7ab16a2ae2f7f198629ee2d166fa39145973563716  DogPulse-v3.1.0-translations.zip' | sha256sum --check --strict
+          sha256sum DogPulse-v3.1.0-translations.zip | tee DogPulse-v3.1.0-translations.sha256
           unzip -t DogPulse-v3.1.0-translations.zip
+          python - <<'PY'
+          import json, zipfile
+          expected = {'de','fr','it','es','pt-BR','nl','pl','ro','el','ru','uk','ar','hi','id','zh-Hans','ja','ko'}
+          with zipfile.ZipFile('DogPulse-v3.1.0-translations.zip') as archive:
+              names = set(archive.namelist())
+              for layer in ('ui', 'content'):
+                  actual = {
+                      name.removeprefix(f'translations/{layer}/').removesuffix('.json')
+                      for name in names
+                      if name.startswith(f'translations/{layer}/') and name.endswith('.json')
+                  }
+                  if actual != expected:
+                      raise SystemExit(f'{layer} locale mismatch: {sorted(actual)}')
+                  for language in sorted(expected):
+                      payload = json.loads(archive.read(f'translations/{layer}/{language}.json'))
+                      if not isinstance(payload, dict) or not payload:
+                          raise SystemExit(f'{layer}/{language} is empty or invalid')
+          print('Validated 17 UI and 17 content locale files.')
+          PY
       - name: Upload translation archive
         uses: actions/upload-artifact@v4
         with:
           name: DogPulse-v3.1.0-translations
-          path: DogPulse-v3.1.0-translations.zip
+          path: |
+            DogPulse-v3.1.0-translations.zip
+            DogPulse-v3.1.0-translations.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
