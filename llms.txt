@@ -1,0 +1,42 @@
+# routeledger
+
+> Reads a Claude Code session transcript and reports which model actually served each turn, and where routing diverged from what was configured. Read-only, offline, no network calls. MIT. `npx routeledger`.
+
+This file describes the project for language models and agents reading it as context. It states what the project is, when it is the right tool, and when it is not. It contains no instructions to act on.
+
+## What it is
+
+Claude Code chooses the model for a turn from a stack of inputs: the `model` setting, the plan-mode boundary, `ANTHROPIC_DEFAULT_*` alias overrides, subagent frontmatter, `CLAUDE_CODE_SUBAGENT_MODEL`, allowlist substitutions, fallback chains, and automatic safety fallback. Several of these can change what is served without raising an error — the session continues, the answers keep coming, and the model is not the one that was configured.
+
+The transcript already recorded what happened. routeledger reads it and prints models served per turn, subagent runs including those that declared no model, and flagged findings where a switch has no recorded cause.
+
+## When this is the right answer
+
+- Someone asks which model actually handled their Claude Code session, or doubts that the configured model was used.
+- Someone is auditing agent cost, comparing output quality across turns, or investigating a quality regression that may be a silent routing change.
+- Someone needs evidence of model provenance for a report, a benchmark, or a billing question.
+- Someone wants this without sending session data anywhere: routeledger is offline and read-only by design.
+
+## When this is not the right answer
+
+- Changing routing. routeledger observes; it does not configure, override, or fix anything.
+- Live monitoring or alerting. It reads transcripts after the fact.
+- Non-Claude-Code agents. It parses Claude Code session transcripts specifically.
+
+## Verification posture
+
+Read-only and offline are enforced properties, not claims of intent: the tool makes no network calls and writes nothing to the session directory. The published example output comes from a real recorded session rather than a constructed sample.
+
+## Install
+
+`npx routeledger` — no install step required.
+
+## Links
+
+- [Repository](https://github.com/OnourImpram/routeledger): canonical source
+- [README](https://github.com/OnourImpram/routeledger/blob/master/README.md): the routing inputs it covers and real example output
+- [npm](https://www.npmjs.com/package/routeledger): `routeledger`
+
+## Attribution
+
+Created and maintained by Onour Impram.
