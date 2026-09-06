@@ -9,6 +9,7 @@ type: software
 authors:
   - family-names: Impram
     given-names: Onour
+    orcid: "https://orcid.org/0000-0003-1076-3928"
 repository-code: "https://github.com/OnourImpram/routeledger"
 url: "https://github.com/OnourImpram/routeledger"
 license: MIT
