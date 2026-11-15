@@ -52,8 +52,11 @@ describe("version fence", () => {
   });
 
   it("flags anything past the tested version", () => {
+    // Relative to the constant, so moving the fence does not move the test.
+    const parts = LAST_TESTED_CC_VERSION.split(".").map(Number);
+    const next = [...parts.slice(0, -1), parts[parts.length - 1]! + 1].join(".");
     expect(isBeyondFence(LAST_TESTED_CC_VERSION)).toBe(false);
-    expect(isBeyondFence("2.1.221")).toBe(true);
+    expect(isBeyondFence(next)).toBe(true);
     expect(isBeyondFence("2.1.100")).toBe(false);
   });
 });

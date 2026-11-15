@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+- **Verified on Claude Code 2.1.325** (was 2.1.220). On every newer version
+  the fence had closed and each finding fell to `unverifiable`, so the tool
+  said nothing about a current session. The fields the checks read were
+  looked for in 80 real sessions written by 2.1.226 to 2.1.325. The report of
+  76 of them (the other four were still being written) was compared with an
+  independent reading of the same files: versions, model counts, the
+  plan-mode finding, model changes and 1,659 subagent findings agreed in all
+  76. The comparison was then run against three deliberately broken builds
+  and inputs, and reported each one.
+- **The Mythos family is recognised.** A model id beginning `claude-mythos-`
+  mapped to `unknown`, so a subagent declared with one was `unverifiable`
+  whatever served it.
+- **Agents launched by a workflow run are checked.** Claude Code stores them
+  one level below the subagent directory (`subagents/workflows/<run>/`), and
+  a flat listing passed over them in silence. In the sessions read, 689 of
+  1,715 declarations lived there. They are found now and named by where
+  they live.
+- **The plan-mode boundary is placed where the mode changed.** The check
+  read the mode from user turns alone. Approving a plan leaves plan mode in
+  the middle of a turn, so the turns that executed the plan were counted as
+  plan-mode turns until the next prompt, and turns in a plan mode entered
+  mid-turn were counted as execution. The mode-change records the session
+  writes are read as well now, whichever record came last. Measured on the
+  29 sessions with a plan-mode turn (2.1.81 to 2.1.325): the mode-change
+  record left plan mode within two assistant records of the last
+  `ExitPlanMode` call 22 times out of 29; the user turn did so once out of
+  25, and was more than ten records late 21 times. On 4 of the 28 sessions
+  compared the old reading gives a different verdict. A session with no
+  mode-change record is read as before.
+- **One unreadable project directory no longer stops everything.** A
+  directory under `~/.claude/projects` that could not be listed threw out of
+  the scan: no listing, no lookup by id, no audit. It is skipped now and
+  named on stderr.
+
+Not released to npm. The package version is unchanged.
+
 ## 0.3.1 - 2026-07-27
 
 - The repository now carries a `CITATION.cff`, so GitHub renders a "Cite this
