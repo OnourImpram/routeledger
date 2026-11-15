@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-11-15
 
 - **Verified on Claude Code 2.1.325** (was 2.1.220). On every newer version
   the fence had closed and each finding fell to `unverifiable`, so the tool
@@ -35,8 +35,8 @@
   directory under `~/.claude/projects` that could not be listed threw out of
   the scan: no listing, no lookup by id, no audit. It is skipped now and
   named on stderr.
-
-Not released to npm. The package version is unchanged.
+- Temporary workflows and a trigger file left by an unrelated job were
+  removed from the repository.
 
 ## 0.3.1 - 2026-07-27
 
