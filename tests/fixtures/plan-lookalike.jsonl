@@ -1,0 +1,4 @@
+{"type":"user","permissionMode":"default","message":{"role":"user","content":"do it"},"timestamp":"2026-11-15T12:00:00.000Z","version":"2.1.325"}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-5-5"},"timestamp":"2026-11-15T12:00:05.000Z","version":"2.1.325"}
+{"type":"attachment","permissionMode":"plan","sessionId":"fixture"}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-5-5"},"timestamp":"2026-11-15T12:00:30.000Z","version":"2.1.325"}

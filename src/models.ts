@@ -1,10 +1,11 @@
-export type Family = "fable" | "opus" | "sonnet" | "haiku" | "unknown";
+export type Family = "fable" | "mythos" | "opus" | "sonnet" | "haiku" | "unknown";
 
 /** The newest Claude Code version routeledger has actually been verified on. */
-export const LAST_TESTED_CC_VERSION = "2.1.220";
+export const LAST_TESTED_CC_VERSION = "2.1.325";
 
 const PREFIXES: ReadonlyArray<readonly [string, Family]> = [
   ["claude-fable-", "fable"],
+  ["claude-mythos-", "mythos"],
   ["claude-opus-", "opus"],
   ["claude-sonnet-", "sonnet"],
   ["claude-haiku-", "haiku"],
@@ -24,7 +25,7 @@ export function familyOfModelId(id: string): Family {
 
 export function familyOfDeclared(declared: string): Family {
   const s = stripContextTag(declared.trim().toLowerCase());
-  if (s === "fable" || s === "opus" || s === "sonnet" || s === "haiku") return s;
+  if (s === "fable" || s === "mythos" || s === "opus" || s === "sonnet" || s === "haiku") return s;
   return familyOfModelId(s);
 }
 

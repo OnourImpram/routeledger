@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { allSessions, findLatestSession, findSessionById } from "./sessions.js";
+import { allSessions, findLatestSession, findSessionById, unreadableProjects } from "./sessions.js";
 import { auditSession } from "./audit.js";
 import { render, renderJson } from "./render.js";
 
@@ -24,8 +24,24 @@ function ownVersion(): string {
   return pkg.version;
 }
 
+/**
+ * Says which project directories were skipped. On stderr, so that --json
+ * output stays parseable. Called only where the answer depends on the scan:
+ * a listing, a lookup that found nothing.
+ */
+function noteUnreadable(): void {
+  const skipped = unreadableProjects();
+  if (skipped.length === 0) return;
+  const one = skipped.length === 1;
+  process.stderr.write(
+    `routeledger: ${skipped.length} project ${one ? "directory" : "directories"} could not be read and ` +
+      `${one ? "was" : "were"} skipped: ${skipped.join(", ")}\n`
+  );
+}
+
 function listSessions(asJson: boolean): void {
   const all = allSessions().sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 15);
+  noteUnreadable();
   if (asJson) {
     const rows = all.map((s) => ({
       sessionId: s.sessionId,
@@ -73,6 +89,7 @@ async function main(): Promise<void> {
     const byId = findSessionById(arg);
     if (byId === null) {
       process.stderr.write(`routeledger: no session matches "${arg}"\n`);
+      noteUnreadable();
       process.exitCode = 1;
       return;
     }
@@ -81,6 +98,7 @@ async function main(): Promise<void> {
     const found = findLatestSession(process.cwd());
     if (found === null) {
       process.stdout.write("routeledger: no sessions found under ~/.claude/projects\n");
+      noteUnreadable();
       return;
     }
     session = found.session;

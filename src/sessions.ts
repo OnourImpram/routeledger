@@ -39,15 +39,38 @@ function sessionsInSlug(root: string, slug: string): SessionRef[] {
   return out;
 }
 
-/** Every session under every slug. root is injectable for tests. */
-export function allSessions(root: string = projectsRoot()): SessionRef[] {
-  if (!existsSync(root)) return [];
-  const out: SessionRef[] = [];
+/**
+ * Every session under every slug, and the slugs that could not be read.
+ *
+ * One project directory that cannot be listed (a permission error, a link
+ * whose target is gone) used to throw out of the scan and take every other
+ * project down with it: no listing, no lookup by id, nothing. Met 2026-11-15
+ * on a directory carried over from another account. Such a directory is
+ * skipped and named, so the caller can say what it did not look at.
+ */
+function scan(root: string): { sessions: SessionRef[]; unreadable: string[] } {
+  const sessions: SessionRef[] = [];
+  const unreadable: string[] = [];
+  if (!existsSync(root)) return { sessions, unreadable };
   for (const slug of readdirSync(root)) {
-    if (!statSync(join(root, slug)).isDirectory()) continue;
-    out.push(...sessionsInSlug(root, slug));
+    try {
+      if (!statSync(join(root, slug)).isDirectory()) continue;
+      sessions.push(...sessionsInSlug(root, slug));
+    } catch {
+      unreadable.push(slug);
+    }
   }
-  return out;
+  return { sessions, unreadable };
+}
+
+/** Every session under every readable slug. root is injectable for tests. */
+export function allSessions(root: string = projectsRoot()): SessionRef[] {
+  return scan(root).sessions;
+}
+
+/** The project directories the scan had to skip. Empty when all were read. */
+export function unreadableProjects(root: string = projectsRoot()): string[] {
+  return scan(root).unreadable;
 }
 
 /**
@@ -61,7 +84,13 @@ export function findLatestSession(
 ): { session: SessionRef; usedFallback: boolean } | null {
   if (!existsSync(root)) return null;
 
-  const preferred = sessionsInSlug(root, slugForCwd(cwd));
+  let preferred: SessionRef[] = [];
+  try {
+    preferred = sessionsInSlug(root, slugForCwd(cwd));
+  } catch {
+    // The directory of the cwd itself cannot be read. Fall through to the
+    // scan; usedFallback tells the caller the session came from elsewhere.
+  }
   if (preferred.length > 0) {
     preferred.sort((a, b) => b.mtimeMs - a.mtimeMs);
     return { session: preferred[0]!, usedFallback: false };

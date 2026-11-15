@@ -65,11 +65,11 @@ Requires Node 20+ and Claude Code transcripts under `~/.claude/projects`.
 
 ## What it checks
 
-**1. Subagent: declared model vs served model.** Every subagent run leaves a `meta.json` recording the model it was asked for, next to a transcript recording the model that answered. routeledger joins them. *Limit:* when `meta.json` declares no model, there is no recorded intent to compare against, so the finding is `unverifiable` — not "fine".
+**1. Subagent: declared model vs served model.** Every subagent run leaves a `meta.json` recording the model it was asked for, next to a transcript recording the model that answered. routeledger joins them. Agents launched by a workflow run are stored one level further down; they are joined the same way and named by where they live. *Limit:* when `meta.json` declares no model, there is no recorded intent to compare against, so the finding is `unverifiable` — not "fine".
 
 **2. Model changes inside a session.** Walks the served model across the session and separates changes you asked for from changes you did not, by looking for a preceding `/model` command. *Limit:* "no user action found" is an **inference**, not a finding. A mid-session `settings.json` edit and a resume are not recorded in the transcript. routeledger labels this on every such report rather than presenting it as a verdict.
 
-**3. Plan mode profile.** Reports which models served plan-mode turns versus the rest. If they are identical and you expected a plan-mode upgrade, it may not have fired. *Limit:* the configuration in force at session time is not recorded, so this is an observation, never a judgement.
+**3. Plan mode profile.** Reports which models served plan-mode turns versus the rest. If they are identical and you expected a plan-mode upgrade, it may not have fired. The boundary is placed where the session recorded a mode change, on a user turn or in a mode-change record, whichever came last, so the turns that execute an approved plan count as execution. *Limit:* the configuration in force at session time is not recorded, so this is an observation, never a judgement. A session that wrote no mode-change record is read from user turns alone, and there the turns after an approval stay on the plan side until the next prompt.
 
 ## What it does not do
 
@@ -84,10 +84,13 @@ The Claude Code transcript format is undocumented and it moves. During developme
 
 routeledger records the Claude Code version behind every session it reads. On a version newer than the last one it was verified against — or when no version was recorded at all — it refuses to assert: every finding degrades to `unverifiable` (the withdrawn claim is kept in the detail line), and the models-served table is labeled as a raw, unverified count. An auditor that is confidently wrong is worse than no auditor.
 
+The last version verified is 2.1.325. Verified means measured: every field the checks read was looked for in real transcripts written by that version, and the report was compared, session by session, with an independent reading of the same files.
+
 ## Honest limits
 
 - The environment a session ran with — `ANTHROPIC_DEFAULT_OPUS_MODEL` and friends — is **not recorded as structured data anywhere in the transcript**. routeledger therefore cannot prove that an alias remap was intended, or that one silently went missing on resume. It will not guess. (Those variable names can turn up inside a transcript as ordinary conversation text, because someone discussed them. That is not a record of the environment, and routeledger does not read it as one.)
 - `unverifiable` is a real answer here and appears often. It means the evidence needed is absent, not that everything is fine.
+- A project directory that cannot be listed is skipped and named on stderr. The sessions inside it are not looked at.
 - Findings describe one session. There is no history, no policy file, and no CI-gate mode in this version — findings never change the exit code. (The badge above is this repo's own test suite, not a gating feature.)
 
 ## Related work
